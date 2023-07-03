@@ -19,50 +19,34 @@ def scrape_car_data(link):
         - special information about the given car it can be anything without a well-defined stricture.
     """
     try:
-        # Get the html
+        # Get the html content of the link
         response = requests.get(link)
-        soup = BeautifulSoup(response.content, "html.parser")
 
-        header = soup.find_all("div", {"class": "data-relay-banner"})
-
-        # If there is no header that means the car is not available anymore
-        if len(header) == 0:
-            return None, None
-
-        # Get the header information
-        # It is in a dictionary format but as a string, so we need to convert it
-        header = ast.literal_eval(
-            header[0]["data-vehicle-information-banner-parameters"]
-        )
+        # Parse the html content
+        soup = BeautifulSoup(response.content, 'html.parser')
 
         # Get the data from the base advertisement information table
         advertisement_data = soup.find_all("table", {"class": "hirdetesadatok"})
 
-        # Get the text from xml
-        # Separator is # because it is not in the text and without it
-        # the words would be merged without spaces.
-        advertisement_data = advertisement_data[0].get_text(separator="#")
+        # If there is no advertisement_data that means the car is not available anymore
+        if len(advertisement_data) == 0:
+            return None, None
 
-        # Clean the text
-        advertisement_data = (
-            advertisement_data.strip()
-        )  # Remove leading and trailing spaces
-        advertisement_data = re.sub(
-            r"#\n", "", advertisement_data
-        )  # Remove new lines without any text
+        # Get the table in html format
+        table_html = str(soup.find_all('table', {'class': 'hirdetesadatok'})[0])
 
-        # Get lines by splitting on the defined separator #
-        advertisement_data = advertisement_data.split("#")
-        advertisement_data = pd.Series(advertisement_data)
+        # Read the table with pandas and
+        advertisement_data = pd.read_html(table_html)[0]
 
-        # Add header to advertisement data
-        advertisement_data.update(header)
+        # Clean the data
+        advertisement_data.columns = ['key', 'value']
+        # Remove the rows where the key is not contains ':' at the end
+        # This is because the table contains some other information which is not irrelevant,
+        # not real key value pairs
+        advertisement_data = advertisement_data[advertisement_data['key'].str.contains(':$', regex=True)]
 
-        keys_id = advertisement_data.str.contains(":$")
-        values_id = np.where(keys_id)[0] + 1
-        keys = advertisement_data[keys_id]
-        values = advertisement_data[values_id]
-        advertisement_data = dict(zip(keys, values))
+        # Convert the dataframe into dictionary
+        advertisement_data = dict(zip(advertisement_data['key'], advertisement_data['value']))
 
         # Get equipment info
         equipments = soup.find_all("div", {"class": "row felszereltseg"})
@@ -131,7 +115,7 @@ class CarDataScraper:
             [match["href"] for match in matches if match.has_attr("href")]
         )
 
-        # Keep only those that a like for a car
+        # Keep only those that a link for a car
         hrefs = hrefs[
             hrefs.str.contains("www.hasznaltauto.hu/szemelyauto", regex=False)
         ].to_list()
