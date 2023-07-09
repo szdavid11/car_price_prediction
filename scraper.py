@@ -1,7 +1,5 @@
 import os
-import re
 import pickle
-import ast
 import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -45,8 +43,23 @@ def scrape_car_data(link):
         # not real key value pairs
         advertisement_data = advertisement_data[advertisement_data['key'].str.contains(':$', regex=True)]
 
-        # Convert the dataframe into dictionary
-        advertisement_data = dict(zip(advertisement_data['key'], advertisement_data['value']))
+        # Transform dataframe key to columns and values to rows
+        # This will be easier to work with as we collect the car data inta rows of a dataframe
+        advertisement_data = advertisement_data[advertisement_data['key'].str.contains(':$', regex=True)]
+        advertisement_data = advertisement_data.T
+        advertisement_data.reset_index(drop=True, inplace=True)
+        advertisement_data.columns = advertisement_data.iloc[0]
+        advertisement_data = advertisement_data[1:]
+
+        # Seller information
+        h4_headers = [x.text for x in soup.find_all("h4")]
+        # Decide if the seller is a shop or private person
+        advertisement_data["buy_from_shop"] = 'Kereskedés adatai' in h4_headers
+
+        # Sale contact
+        contacts = soup.find_all('span', {"class": "contact-button-text"})
+        for i in range(len(contacts)):
+            advertisement_data[f"content_info_{i}"] = contacts[i].text
 
         # Get equipment info
         equipments = soup.find_all("div", {"class": "row felszereltseg"})
@@ -63,7 +76,7 @@ def scrape_car_data(link):
         if description:
             description = [description[0].text]
 
-            # Get oll special info about the car and clean it
+        # Get oll special info about the car and clean it
         special_car_info = equipments + other + description
         if special_car_info:
             special_car_info = pd.Series(special_car_info)
@@ -96,8 +109,8 @@ class CarDataScraper:
         """
         self.link_collection_file = link_collection_file
         self.scraped_data_file = scraped_data_file
-
-        self.existing_links = self.load_existing_links()
+        self.df_existing_links = None
+        self.load_existing_links()
 
     def get_links(self, page_number):
         """
@@ -127,10 +140,10 @@ class CarDataScraper:
             print("No existing links found")
             return []
 
-        df = pd.read_csv(self.link_collection_file)
+        self.df_existing_links = pd.read_csv(self.link_collection_file)
 
-        print(f"Loaded {len(df)} existing links")
-        return df["car_links"].values
+        print(f"Loaded {len(self.df_existing_links)} existing links")
+
 
     def get_all_links(self) -> pd.Series:
         """
@@ -147,7 +160,7 @@ class CarDataScraper:
             all_links.append(links_on_page)
 
         all_links = pd.Series(np.concatenate(all_links))
-        all_links = all_links.str.replace("#sid.*", "")
+        all_links = all_links.str.replace("#sid.*", "", regex=True)
         return all_links
 
     def get_new_links(self) -> pd.Series:
@@ -157,8 +170,18 @@ class CarDataScraper:
         """
         all_hrefs = self.get_all_links()
 
-        # Extract the hrefs from page results
-        new_links = all_hrefs[~all_hrefs.isin(self.existing_links)]
+        if self.df_existing_links is not None:
+            # Add estimated sold date to the existing links if they are not available anymore
+            is_still_exists = (self.df_existing_links["car_links"]).isin(all_hrefs)
+            self.df_existing_links['estimated_sold_date'] = np.where(
+                ~is_still_exists, str(datetime.today())[:19], None
+            )
+
+            # Extract the hrefs from page results
+            new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["car_links"])]
+        else:
+            new_links = all_hrefs
+
         new_links = new_links.drop_duplicates()
 
         return new_links
@@ -172,14 +195,19 @@ class CarDataScraper:
         new_links = self.get_new_links()
 
         # Create a dataframe from the new links
-        df_hrefs = pd.DataFrame({"car_links": list(new_links)})
-        df_hrefs["collected_at"] = str(datetime.today())[:19]
+        df_new_hrefs = pd.DataFrame({"car_links": list(new_links)})
+        df_new_hrefs["collected_at"] = str(datetime.today())[:19]
 
         # Make sure that the links are unique
-        df_hrefs.drop_duplicates(inplace=True)
+        df_new_hrefs.drop_duplicates(inplace=True)
 
-        # Append to the existing file
-        df_hrefs.to_csv(self.link_collection_file, index=False, mode="a")
+        if self.df_existing_links is None:
+            df_hrefs = df_new_hrefs
+        else:
+            df_hrefs = pd.concat([self.df_existing_links, df_new_hrefs])
+
+        # Update the links in the csv file
+        df_hrefs.to_csv(self.link_collection_file, index=False)
 
         return new_links
 
