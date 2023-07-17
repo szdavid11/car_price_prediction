@@ -109,8 +109,24 @@ class CarDataScraper:
         """
         self.link_collection_file = link_collection_file
         self.scraped_data_file = scraped_data_file
-        self.df_existing_links = None
-        self.load_existing_links()
+
+        # Load data from the pickle file if it exists
+        if os.path.exists(self.scraped_data_file):
+            with open(self.scraped_data_file, mode="rb") as file:
+                self.res_list = pickle.load(file)
+            missing_values = pd.Series([x[0] is None for x in self.res_list])
+            links = pd.Series([x[2] for x in self.res_list])[~missing_values]
+
+            self.df_existing_links = pd.DataFrame({"car_link": links})
+
+            if os.path.exists(self.link_collection_file):
+                df_saved_links = pd.read_csv(self.link_collection_file)
+                self.df_existing_links = pd.merge(
+                    self.df_existing_links, df_saved_links, on="car_link", how='left'
+                )
+        else:
+            self.res_list = []
+            self.df_existing_links = None
 
     def get_links(self, page_number):
         """
@@ -134,16 +150,6 @@ class CarDataScraper:
         ].to_list()
 
         return hrefs
-
-    def load_existing_links(self):
-        if not os.path.exists(self.link_collection_file):
-            print("No existing links found")
-            return []
-
-        self.df_existing_links = pd.read_csv(self.link_collection_file)
-
-        print(f"Loaded {len(self.df_existing_links)} existing links")
-
 
     def get_all_links(self) -> pd.Series:
         """
@@ -172,13 +178,19 @@ class CarDataScraper:
 
         if self.df_existing_links is not None:
             # Add estimated sold date to the existing links if they are not available anymore
-            is_still_exists = (self.df_existing_links["car_links"]).isin(all_hrefs)
+            is_still_exists = (self.df_existing_links["car_link"]).isin(all_hrefs)
+            if 'estimated_sold_date' not in self.df_existing_links.columns:
+                self.df_existing_links['estimated_sold_date'] = np.nan
+
+            already_sold = ~self.df_existing_links["estimated_sold_date"].isna()
             self.df_existing_links['estimated_sold_date'] = np.where(
-                ~is_still_exists, str(datetime.today())[:19], None
+                (~is_still_exists) & (~already_sold),
+                str(datetime.today())[:19],
+                self.df_existing_links['estimated_sold_date']
             )
 
             # Extract the hrefs from page results
-            new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["car_links"])]
+            new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["car_link"])]
         else:
             new_links = all_hrefs
 
@@ -195,7 +207,7 @@ class CarDataScraper:
         new_links = self.get_new_links()
 
         # Create a dataframe from the new links
-        df_new_hrefs = pd.DataFrame({"car_links": list(new_links)})
+        df_new_hrefs = pd.DataFrame({"car_link": list(new_links)})
         df_new_hrefs["collected_at"] = str(datetime.today())[:19]
 
         # Make sure that the links are unique
@@ -221,14 +233,23 @@ class CarDataScraper:
 
         print("Collect data of the cars. This may take a while. (~3 hours)")
         print("Number of new cars:", len(new_links))
-        res_list = []
+
+        success_count = 0
         for i, link in enumerate(new_links):
             advertisement_data, special_car_info = scrape_car_data(link)
-            res_list.append([advertisement_data, special_car_info, link])
-            if i % 100 == 0:
-                print("Number of cars scraped:", i)
-                with open(self.scraped_data_file, mode="ab") as file:
-                    pickle.dump(res_list, file)
+            if advertisement_data is not None:
+                self.res_list.append([advertisement_data, special_car_info, link])
+                success_count += 1
+
+            if i % 1000 == 0:
+                # Backup safe the data
+                print("Number of already scraped cars:", success_count)
+                with open(self.scraped_data_file, mode="wb") as file:
+                    pickle.dump(self.res_list, file)
+
+        print("Number of total cars scraped:", success_count)
+        with open(self.scraped_data_file, mode="wb") as file:
+            pickle.dump(self.res_list, file)
 
 
 if __name__ == "__main__":
