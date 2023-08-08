@@ -1,0 +1,170 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 600px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+             #config {
+                 float: left;
+                 width: 400px;
+                 height: 600px;
+             }
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+            <div id="config"></div>
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#472a7a", "id": "own weight (kg)", "label": "own weight (kg)", "shape": "dot", "title": "Importance: 2.37%", "value": 1.2141763239302399}, {"color": "#472a7a", "id": "total weight (kg)", "label": "total weight (kg)", "shape": "dot", "title": "Importance: 2.1%", "value": 1.1310002449179588}, {"color": "#472a7a", "id": "summer tire width", "label": "summer tire width", "shape": "dot", "title": "Importance: 0.58%", "value": 0.4555239870518929}, {"color": "#472a7a", "id": "summer tires rim diameter", "label": "summer tires rim diameter", "shape": "dot", "title": "Importance: 1.29%", "value": 0.8266800823092543}, {"color": "#355e8d", "id": "electric seat adjustment driver side", "label": "electric seat adjustment driver side", "shape": "dot", "title": "Importance: 0.1%", "value": 0.09644825144031095}, {"color": "#355e8d", "id": "electric seat adjustment passenger side", "label": "electric seat adjustment passenger side", "shape": "dot", "title": "Importance: 0.01%", "value": 0.006449982697928605}, {"color": "#472a7a", "id": "cylinder capacity (cm3)", "label": "cylinder capacity (cm3)", "shape": "dot", "title": "Importance: 2.85%", "value": 1.3469116234582275}, {"color": "#472a7a", "id": "power (kW)", "label": "power (kW)", "shape": "dot", "title": "Importance: 15.17%", "value": 2.782948830938794}, {"color": "#1f978b", "id": "tfidf_making an offer", "label": "tfidf_making an offer", "shape": "dot", "title": "Importance: 0.02%", "value": 0.020511353410669713}, {"color": "#1f978b", "id": "tfidf_it counts as", "label": "tfidf_it counts as", "shape": "dot", "title": "Importance: 0.03%", "value": 0.026384219579131295}, {"color": "#2e6d8e", "id": "fuel", "label": "fuel", "shape": "dot", "title": "Importance: 0.3%", "value": 0.2652320877179746}, {"color": "#2eb37c", "id": "keyless start", "label": "keyless start", "shape": "dot", "title": "Importance: 0.2%", "value": 0.18519015533519806}, {"color": "#2eb37c", "id": "keyless entry system", "label": "keyless entry system", "shape": "dot", "title": "Importance: 0.03%", "value": 0.034377463274868736}, {"color": "#472a7a", "id": "summer tires aspect ratio", "label": "summer tires aspect ratio", "shape": "dot", "title": "Importance: 0.57%", "value": 0.4512884925855831}, {"color": "#89d548", "id": "driver airbag", "label": "driver airbag", "shape": "dot", "title": "Importance: 0.02%", "value": 0.02276067099009672}, {"color": "#89d548", "id": "passenger airbag", "label": "passenger airbag", "shape": "dot", "title": "Importance: 0.01%", "value": 0.011968421410457102}, {"color": "#21a585", "id": "buy_from_shop", "label": "buy_from_shop", "shape": "dot", "title": "Importance: 0.09%", "value": 0.08524616981139539}, {"color": "#21a585", "id": "car offsetting is possible", "label": "car offsetting is possible", "shape": "dot", "title": "Importance: 0.02%", "value": 0.022704775832143604}, {"color": "#46c06f", "id": "clock position (km)", "label": "clock position (km)", "shape": "dot", "title": "Importance: 6.98%", "value": 2.0767617501001263}, {"color": "#46c06f", "id": "age (year)", "label": "age (year)", "shape": "dot", "title": "Importance: 39.0%", "value": 3.688812951302444}, {"color": "#472a7a", "id": "drive", "label": "drive", "shape": "dot", "title": "Importance: 3.62%", "value": 1.5304553206190226}, {"color": "#65cb5e", "id": "predictable government", "label": "predictable government", "shape": "dot", "title": "Importance: 0.04%", "value": 0.038907595216706545}, {"color": "#65cb5e", "id": "seat height adjustment", "label": "seat height adjustment", "shape": "dot", "title": "Importance: 0.01%", "value": 0.011273737389526185}, {"color": "#b0dd2f", "id": "shippable persons number", "label": "shippable persons number", "shape": "dot", "title": "Importance: 0.15%", "value": 0.14281369823006257}, {"color": "#b0dd2f", "id": "number of doors", "label": "number of doors", "shape": "dot", "title": "Importance: 0.24%", "value": 0.21599432030561808}, {"color": "#1f978b", "id": "tfidf_ad", "label": "tfidf_ad", "shape": "dot", "title": "Importance: 0.06%", "value": 0.053621522226851105}, {"color": "#355e8d", "id": "memory driver seat", "label": "memory driver seat", "shape": "dot", "title": "Importance: 0.01%", "value": 0.005569198099602909}, {"color": "#472a7a", "id": "gearbox", "label": "gearbox", "shape": "dot", "title": "Importance: 2.4%", "value": 1.2248596320018856}, {"color": "#d8e219", "id": "lane keeping system", "label": "lane keeping system", "shape": "dot", "title": "Importance: 0.09%", "value": 0.08971601060196839}, {"color": "#d8e219", "id": "plate recognition function", "label": "plate recognition function", "shape": "dot", "title": "Importance: 0.02%", "value": 0.022222431290541782}, {"color": "#b0dd2f", "id": "design", "label": "design", "shape": "dot", "title": "Importance: 3.08%", "value": 1.406352925493832}, {"color": "#472a7a", "id": "speaker count", "label": "speaker count", "shape": "dot", "title": "Importance: 0.18%", "value": 0.1665863615815288}, {"color": "#65cb5e", "id": "board computer", "label": "board computer", "shape": "dot", "title": "Importance: 0.02%", "value": 0.01804159472984176}, {"color": "#440154", "id": "tfidf_counts", "label": "tfidf_counts", "shape": "dot", "title": "Importance: 0.03%", "value": 0.02888798684046986}, {"color": "#440154", "id": "tfidf_credit", "label": "tfidf_credit", "shape": "dot", "title": "Importance: 0.02%", "value": 0.017600609983657117}, {"color": "#481769", "id": "tfidf_insurance", "label": "tfidf_insurance", "shape": "dot", "title": "Importance: 0.02%", "value": 0.024314560525736297}, {"color": "#481769", "id": "tfidf_administration", "label": "tfidf_administration", "shape": "dot", "title": "Importance: 0.03%", "value": 0.03147349404307567}, {"color": "#d8e219", "id": "distance control cruise control", "label": "distance control cruise control", "shape": "dot", "title": "Importance: 0.1%", "value": 0.09091424879579046}, {"color": "#433d84", "id": "rain sensor", "label": "rain sensor", "shape": "dot", "title": "Importance: 0.07%", "value": 0.06605113304119162}, {"color": "#433d84", "id": "automatically dimming interior mirror", "label": "automatically dimming interior mirror", "shape": "dot", "title": "Importance: 0.1%", "value": 0.09229026701609173}, {"color": "#3d4e8a", "id": "type of climate", "label": "type of climate", "shape": "dot", "title": "Importance: 0.53%", "value": 0.4252064914034448}, {"color": "#3d4e8a", "id": "electric window in front", "label": "electric window in front", "shape": "dot", "title": "Importance: 0.01%", "value": 0.006509075013676804}, {"color": "#2e6d8e", "id": "type2 charging cable", "label": "type2 charging cable", "shape": "dot", "title": "Importance: 0.0%", "value": 0.0033967689860379745}, {"color": "#2e6d8e", "id": "home mains charger", "label": "home mains charger", "shape": "dot", "title": "Importance: 0.0%", "value": 0.0002465983544527266}, {"color": "#3d4e8a", "id": "electric rear window", "label": "electric rear window", "shape": "dot", "title": "Importance: 0.63%", "value": 0.4889590907359258}, {"color": "#297b8e", "id": "side airbag", "label": "side airbag", "shape": "dot", "title": "Importance: 0.06%", "value": 0.06244873155419725}, {"color": "#297b8e", "id": "curtain airbag", "label": "curtain airbag", "shape": "dot", "title": "Importance: 0.22%", "value": 0.20235932610504714}, {"color": "#65cb5e", "id": "immobiliser", "label": "immobiliser", "shape": "dot", "title": "Importance: 0.01%", "value": 0.013956546456926507}, {"color": "#23898e", "id": "bluetooth speakerphone", "label": "bluetooth speakerphone", "shape": "dot", "title": "Importance: 0.11%", "value": 0.10221871780196497}, {"color": "#23898e", "id": "USB connector", "label": "USB connector", "shape": "dot", "title": "Importance: 0.02%", "value": 0.017875485349815753}, {"color": "#65cb5e", "id": "power steering", "label": "power steering", "shape": "dot", "title": "Importance: 0.02%", "value": 0.015732420078701324}]);
+                  edges = new vis.DataSet([{"from": "own weight (kg)", "title": "Predictive score: 0.909", "to": "total weight (kg)"}, {"from": "own weight (kg)", "title": "Predictive score: 0.681", "to": "summer tire width"}, {"from": "own weight (kg)", "title": "Predictive score: 0.636", "to": "power (kW)"}, {"from": "own weight (kg)", "title": "Predictive score: 0.593", "to": "cylinder capacity (cm3)"}, {"from": "own weight (kg)", "title": "Predictive score: 0.552", "to": "summer tires rim diameter"}, {"from": "own weight (kg)", "title": "Predictive score: 0.394", "to": "drive"}, {"from": "own weight (kg)", "title": "Predictive score: 0.391", "to": "gearbox"}, {"from": "total weight (kg)", "title": "Predictive score: 0.671", "to": "summer tire width"}, {"from": "total weight (kg)", "title": "Predictive score: 0.578", "to": "power (kW)"}, {"from": "total weight (kg)", "title": "Predictive score: 0.566", "to": "cylinder capacity (cm3)"}, {"from": "total weight (kg)", "title": "Predictive score: 0.514", "to": "summer tires rim diameter"}, {"from": "total weight (kg)", "title": "Predictive score: 0.355", "to": "drive"}, {"from": "summer tire width", "title": "Predictive score: 0.735", "to": "summer tires rim diameter"}, {"from": "summer tire width", "title": "Predictive score: 0.671", "to": "power (kW)"}, {"from": "summer tire width", "title": "Predictive score: 0.542", "to": "cylinder capacity (cm3)"}, {"from": "summer tire width", "title": "Predictive score: 0.497", "to": "summer tires aspect ratio"}, {"from": "summer tire width", "title": "Predictive score: 0.419", "to": "gearbox"}, {"from": "summer tires rim diameter", "title": "Predictive score: 0.656", "to": "power (kW)"}, {"from": "summer tires rim diameter", "title": "Predictive score: 0.517", "to": "summer tires aspect ratio"}, {"from": "summer tires rim diameter", "title": "Predictive score: 0.466", "to": "cylinder capacity (cm3)"}, {"from": "summer tires rim diameter", "title": "Predictive score: 0.438", "to": "gearbox"}, {"from": "electric seat adjustment driver side", "title": "Predictive score: 0.697", "to": "electric seat adjustment passenger side"}, {"from": "electric seat adjustment driver side", "title": "Predictive score: 0.445", "to": "memory driver seat"}, {"from": "cylinder capacity (cm3)", "title": "Predictive score: 0.694", "to": "power (kW)"}, {"from": "cylinder capacity (cm3)", "title": "Predictive score: 0.473", "to": "drive"}, {"from": "power (kW)", "title": "Predictive score: 0.428", "to": "drive"}, {"from": "power (kW)", "title": "Predictive score: 0.401", "to": "speaker count"}, {"from": "power (kW)", "title": "Predictive score: 0.357", "to": "summer tires aspect ratio"}, {"from": "power (kW)", "title": "Predictive score: 0.352", "to": "gearbox"}, {"from": "tfidf_making an offer", "title": "Predictive score: 0.669", "to": "tfidf_it counts as"}, {"from": "tfidf_making an offer", "title": "Predictive score: 0.445", "to": "tfidf_ad"}, {"from": "tfidf_it counts as", "title": "Predictive score: 0.354", "to": "tfidf_ad"}, {"from": "fuel", "title": "Predictive score: 0.374", "to": "type2 charging cable"}, {"from": "fuel", "title": "Predictive score: 0.366", "to": "home mains charger"}, {"from": "keyless start", "title": "Predictive score: 0.543", "to": "keyless entry system"}, {"from": "driver airbag", "title": "Predictive score: 0.491", "to": "passenger airbag"}, {"from": "buy_from_shop", "title": "Predictive score: 0.488", "to": "car offsetting is possible"}, {"from": "clock position (km)", "title": "Predictive score: 0.479", "to": "age (year)"}, {"from": "predictable government", "title": "Predictive score: 0.464", "to": "seat height adjustment"}, {"from": "predictable government", "title": "Predictive score: 0.4", "to": "board computer"}, {"from": "predictable government", "title": "Predictive score: 0.353", "to": "immobiliser"}, {"from": "predictable government", "title": "Predictive score: 0.351", "to": "power steering"}, {"from": "shippable persons number", "title": "Predictive score: 0.451", "to": "number of doors"}, {"from": "number of doors", "title": "Predictive score: 0.405", "to": "design"}, {"from": "lane keeping system", "title": "Predictive score: 0.417", "to": "plate recognition function"}, {"from": "lane keeping system", "title": "Predictive score: 0.387", "to": "distance control cruise control"}, {"from": "tfidf_counts", "title": "Predictive score: 0.393", "to": "tfidf_credit"}, {"from": "tfidf_insurance", "title": "Predictive score: 0.388", "to": "tfidf_administration"}, {"from": "rain sensor", "title": "Predictive score: 0.383", "to": "automatically dimming interior mirror"}, {"from": "type of climate", "title": "Predictive score: 0.38", "to": "electric window in front"}, {"from": "type of climate", "title": "Predictive score: 0.359", "to": "electric rear window"}, {"from": "side airbag", "title": "Predictive score: 0.356", "to": "curtain airbag"}, {"from": "bluetooth speakerphone", "title": "Predictive score: 0.351", "to": "USB connector"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": true,
+        "filter": [
+            "physics"
+        ]
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+                  // if this network requires displaying the configure window,
+                  // put it in its div
+                  options.configure["container"] = document.getElementById("config");
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
