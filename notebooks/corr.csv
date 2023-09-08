@@ -1,16 +1,16 @@
 other_variable,correlation
-power (kW),0.7041161263737811
-summer tires rim diameter,0.6419296390886801
-own weight (kg),0.6006130825604536
-summer tire width,0.5769394147285658
-total weight (kg),0.5274587076343996
-speaker count,0.5106982431164186
-cylinder capacity (cm3),0.44551863539714026
-MOT is valid (days),0.25485529699221493
-trunk (l),0.103265993087179
-shippable persons number,0.017241425332830233
-number of doors,-0.005818315427109623
-financing,-0.1356580884467826
-summer tires aspect ratio,-0.3841984922962107
-clock position (km),-0.4224832054365275
-age (year),-0.5312564602800196
+power (kW),0.6864715932971713
+summer tires rim diameter,0.6129385742871678
+summer tire width,0.5517743915743824
+speaker count,0.4923045412041315
+own weight (kg),0.4893843141740334
+total weight (kg),0.4476896572307211
+cylinder capacity (cm3),0.4329505242134145
+MOT is valid (days),0.22637595252943452
+trunk (l),0.10313194989542214
+shippable persons number,0.0212262039716454
+number of doors,0.00045986810219966214
+financing,-0.1583793328702052
+summer tires aspect ratio,-0.36566068537101615
+clock position (km),-0.4028214793821317
+age (year),-0.5346314475103959

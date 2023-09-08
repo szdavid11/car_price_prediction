@@ -1,10 +1,19 @@
 import os
-import pickle
 import requests
-from datetime import datetime
+import re
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
+from sqlalchemy import create_engine, MetaData, text as sql_text
+
+
+# Create engine and base
+username = os.getenv("DB_USERNAME")
+password = os.getenv("DB_PASSWORD")
+DATABASE_URL = f"postgresql://{username}:{password}@localhost:5432/cardb"
+engine = create_engine(DATABASE_URL)
+metadata = MetaData()
+metadata.reflect(bind=engine)
 
 
 def scrape_car_data(link):
@@ -28,7 +37,13 @@ def scrape_car_data(link):
 
         # If there is no advertisement_data that means the car is not available anymore
         if len(advertisement_data) == 0:
-            return None, None
+            return None
+
+        history = soup.find_all("div", {"class": "car-history-card__cta"})
+        if history:
+            chassis_number = re.findall(r'elozetes-ellenorzes\?vin=(.+?)\&amp', str(history[0]))[0]
+        else:
+            chassis_number = None
 
         # Get the table in html format
         table_html = str(soup.find_all('table', {'class': 'hirdetesadatok'})[0])
@@ -61,6 +76,13 @@ def scrape_car_data(link):
         for i in range(len(contacts)):
             advertisement_data[f"content_info_{i}"] = contacts[i].text
 
+        # Use lower case column names
+        advertisement_data.columns = advertisement_data.columns.str.lower().str.replace(':', '')
+
+        # Remove '\x00' characters
+        for col in advertisement_data.select_dtypes([object]):
+            advertisement_data[col] = advertisement_data[col].str.replace("\x00", "")
+
         # Get equipment info
         equipments = soup.find_all("div", {"class": "row felszereltseg"})
         if equipments:
@@ -77,18 +99,24 @@ def scrape_car_data(link):
             description = [description[0].text]
 
         # Get oll special info about the car and clean it
-        special_car_info = equipments + other + description
+        special_car_info = equipments + other
         if special_car_info:
             special_car_info = pd.Series(special_car_info)
             special_car_info = special_car_info.str.strip()
             special_car_info = special_car_info.str.lower()
             special_car_info = special_car_info.dropna()
             special_car_info = special_car_info[~special_car_info.isin(["", "-"])]
+            special_car_info = special_car_info.str.replace("\x00", "")
 
-        return advertisement_data, special_car_info
+        advertisement_data['feature_list'] = [special_car_info.to_list()]
+        advertisement_data['description'] = description
+        advertisement_data['link'] = link
+        advertisement_data['chassis_number'] = chassis_number
+
+        return advertisement_data
     except Exception as e:
         print(e)
-        return None, None
+        return None
 
 
 class CarDataScraper:
@@ -97,35 +125,33 @@ class CarDataScraper:
 
     def __init__(
         self,
-        link_collection_file="data/car_links.csv",
-        scraped_data_file="data/car_data.pickle",
+        link_collection_table="car_links",
+        scraped_data_table="car_data",
     ):
         """
         Scrapes the data from the hasznaltauto.hu website
-        :param link_collection_file: Output file for the links of the cars.
-        File extension must be .csv
-        :param scraped_data_file: Output file for all the scraped cars data.
-        File extension must be .pickle
+        :param link_collection_table: SQL source for the links of the cars.
+        :param scraped_data_table: SQL source for all the scraped cars data.
         """
-        self.link_collection_file = link_collection_file
-        self.scraped_data_file = scraped_data_file
+        self.link_collection_table = link_collection_table
+        self.scraped_data_table = scraped_data_table
 
-        # Load data from the pickle file if it exists
-        if os.path.exists(self.scraped_data_file):
-            with open(self.scraped_data_file, mode="rb") as file:
-                self.res_list = pickle.load(file)
-            missing_values = pd.Series([x[0] is None for x in self.res_list])
-            links = pd.Series([x[2] for x in self.res_list])[~missing_values]
+        # Load existing links
+        if self.scraped_data_table in metadata.tables:
+            sql = f"SELECT link FROM {self.scraped_data_table}"
+            links = pd.read_sql(sql_text(sql), engine.connect())['link']
 
-            self.df_existing_links = pd.DataFrame({"car_link": links})
+            self.df_existing_links = pd.DataFrame({"link": links})
 
-            if os.path.exists(self.link_collection_file):
-                df_saved_links = pd.read_csv(self.link_collection_file)
+            if self.link_collection_table in metadata.tables:
+                df_saved_links = pd.read_sql(sql_text(f"""
+                SELECT *
+                FROM {self.link_collection_table}
+                """), engine.connect())
                 self.df_existing_links = pd.merge(
-                    self.df_existing_links, df_saved_links, on="car_link", how='left'
+                    self.df_existing_links, df_saved_links, on="link", how='left'
                 )
         else:
-            self.res_list = []
             self.df_existing_links = None
 
     def get_links(self, page_number):
@@ -177,20 +203,25 @@ class CarDataScraper:
         all_hrefs = self.get_all_links()
 
         if self.df_existing_links is not None:
-            # Add estimated sold date to the existing links if they are not available anymore
-            is_still_exists = (self.df_existing_links["car_link"]).isin(all_hrefs)
-            if 'estimated_sold_date' not in self.df_existing_links.columns:
-                self.df_existing_links['estimated_sold_date'] = np.nan
+            # Update the estimated_sold_date for rows where link is not in the exclude list
+            query = sql_text("""
+                UPDATE car_links
+                SET estimated_sold_date = CURRENT_DATE
+                WHERE link NOT IN :exclude_links
+                AND estimated_sold_date is NULL
+            """)
 
-            already_sold = ~self.df_existing_links["estimated_sold_date"].isna()
-            self.df_existing_links['estimated_sold_date'] = np.where(
-                (~is_still_exists) & (~already_sold),
-                str(datetime.today())[:19],
-                self.df_existing_links['estimated_sold_date']
-            )
+            # Execute the query using the engine
+            with engine.connect() as connection:
+                connection.execute(
+                    query,
+                    {"exclude_links": tuple(all_hrefs.to_list())}
+                )
+
+            print('estimated_sold_date set')
 
             # Extract the hrefs from page results
-            new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["car_link"])]
+            new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["link"])]
         else:
             new_links = all_hrefs
 
@@ -200,32 +231,27 @@ class CarDataScraper:
 
     def update_links(self) -> pd.Series:
         """
-        Update the links in the csv file
+        Update the links
         :return: series of new links
         """
         # Get the new links
         new_links = self.get_new_links()
 
         # Create a dataframe from the new links
-        df_new_hrefs = pd.DataFrame({"car_link": list(new_links)})
-        df_new_hrefs["collected_at"] = str(datetime.today())[:19]
+        df_new_hrefs = pd.DataFrame({"link": list(new_links)})
 
         # Make sure that the links are unique
         df_new_hrefs.drop_duplicates(inplace=True)
 
-        if self.df_existing_links is None:
-            df_hrefs = df_new_hrefs
-        else:
-            df_hrefs = pd.concat([self.df_existing_links, df_new_hrefs])
-
-        # Update the links in the csv file
-        df_hrefs.to_csv(self.link_collection_file, index=False)
+        # Update the links
+        df_new_hrefs.to_sql(self.link_collection_table, engine, if_exists='append', index=False)
+        print('Links are updated')
 
         return new_links
 
     def collect_car_data(self):
         """
-        Collect the data of the cars from the new links and save it to a pickle file
+        Collect the data of the cars from the new links
         :return:
         """
         print("Update links of the cars. This may take a while. (~30 minutes)")
@@ -235,21 +261,29 @@ class CarDataScraper:
         print("Number of new cars:", len(new_links))
 
         success_count = 0
+        failed_links = []
         for i, link in enumerate(new_links):
-            advertisement_data, special_car_info = scrape_car_data(link)
+            advertisement_data = scrape_car_data(link)
             if advertisement_data is not None:
-                self.res_list.append([advertisement_data, special_car_info, link])
+                advertisement_data.to_sql('car_data', engine, if_exists='append', index=False)
                 success_count += 1
-
-            if i % 1000 == 0:
-                # Backup safe the data
-                print("Number of already scraped cars:", success_count)
-                with open(self.scraped_data_file, mode="wb") as file:
-                    pickle.dump(self.res_list, file)
+                print(i)
+            else:
+                failed_links.append(link)
 
         print("Number of total cars scraped:", success_count)
-        with open(self.scraped_data_file, mode="wb") as file:
-            pickle.dump(self.res_list, file)
+
+        # Delete unsuccessful links for links table
+        if failed_links:
+            with engine.connect() as connection:
+                # SQL statement to delete rows from car_links where the link isn't in car_data
+                delete_statement = sql_text(f"""
+                DELETE FROM {self.link_collection_table}
+                WHERE link IN :failed_links
+                """)
+
+                # Execute the delete statement
+                connection.execute(delete_statement, {"failed_links": tuple(failed_links)})
 
 
 if __name__ == "__main__":

@@ -5,4 +5,4 @@ catboost_info
 */__pycache__
 .DS_Store
 __pycache__/
-
+*.parquet
