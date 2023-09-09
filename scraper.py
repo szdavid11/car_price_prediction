@@ -30,7 +30,7 @@ def scrape_car_data(link):
         response = requests.get(link)
 
         # Parse the html content
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.content, "html.parser")
 
         # Get the data from the base advertisement information table
         advertisement_data = soup.find_all("table", {"class": "hirdetesadatok"})
@@ -41,26 +41,32 @@ def scrape_car_data(link):
 
         history = soup.find_all("div", {"class": "car-history-card__cta"})
         if history:
-            chassis_number = re.findall(r'elozetes-ellenorzes\?vin=(.+?)\&amp', str(history[0]))[0]
+            chassis_number = re.findall(
+                r"elozetes-ellenorzes\?vin=(.+?)\&amp", str(history[0])
+            )[0]
         else:
             chassis_number = None
 
         # Get the table in html format
-        table_html = str(soup.find_all('table', {'class': 'hirdetesadatok'})[0])
+        table_html = str(soup.find_all("table", {"class": "hirdetesadatok"})[0])
 
         # Read the table with pandas and
         advertisement_data = pd.read_html(table_html)[0]
 
         # Clean the data
-        advertisement_data.columns = ['key', 'value']
+        advertisement_data.columns = ["key", "value"]
         # Remove the rows where the key is not contains ':' at the end
         # This is because the table contains some other information which is not irrelevant,
         # not real key value pairs
-        advertisement_data = advertisement_data[advertisement_data['key'].str.contains(':$', regex=True)]
+        advertisement_data = advertisement_data[
+            advertisement_data["key"].str.contains(":$", regex=True)
+        ]
 
         # Transform dataframe key to columns and values to rows
         # This will be easier to work with as we collect the car data inta rows of a dataframe
-        advertisement_data = advertisement_data[advertisement_data['key'].str.contains(':$', regex=True)]
+        advertisement_data = advertisement_data[
+            advertisement_data["key"].str.contains(":$", regex=True)
+        ]
         advertisement_data = advertisement_data.T
         advertisement_data.reset_index(drop=True, inplace=True)
         advertisement_data.columns = advertisement_data.iloc[0]
@@ -69,15 +75,17 @@ def scrape_car_data(link):
         # Seller information
         h4_headers = [x.text for x in soup.find_all("h4")]
         # Decide if the seller is a shop or private person
-        advertisement_data["buy_from_shop"] = 'Kereskedés adatai' in h4_headers
+        advertisement_data["buy_from_shop"] = "Kereskedés adatai" in h4_headers
 
         # Sale contact
-        contacts = soup.find_all('span', {"class": "contact-button-text"})
+        contacts = soup.find_all("span", {"class": "contact-button-text"})
         for i in range(len(contacts)):
             advertisement_data[f"content_info_{i}"] = contacts[i].text
 
         # Use lower case column names
-        advertisement_data.columns = advertisement_data.columns.str.lower().str.replace(':', '')
+        advertisement_data.columns = advertisement_data.columns.str.lower().str.replace(
+            ":", ""
+        )
 
         # Remove '\x00' characters
         for col in advertisement_data.select_dtypes([object]):
@@ -108,10 +116,10 @@ def scrape_car_data(link):
             special_car_info = special_car_info[~special_car_info.isin(["", "-"])]
             special_car_info = special_car_info.str.replace("\x00", "")
 
-        advertisement_data['feature_list'] = [special_car_info.to_list()]
-        advertisement_data['description'] = description
-        advertisement_data['link'] = link
-        advertisement_data['chassis_number'] = chassis_number
+        advertisement_data["feature_list"] = [special_car_info.to_list()]
+        advertisement_data["description"] = description
+        advertisement_data["link"] = link
+        advertisement_data["chassis_number"] = chassis_number
 
         return advertisement_data
     except Exception as e:
@@ -138,19 +146,9 @@ class CarDataScraper:
 
         # Load existing links
         if self.scraped_data_table in metadata.tables:
-            sql = f"SELECT link FROM {self.scraped_data_table}"
-            links = pd.read_sql(sql_text(sql), engine.connect())['link']
-
+            sql = f"SELECT link FROM {self.link_collection_table}"
+            links = pd.read_sql(sql_text(sql), engine.connect())["link"]
             self.df_existing_links = pd.DataFrame({"link": links})
-
-            if self.link_collection_table in metadata.tables:
-                df_saved_links = pd.read_sql(sql_text(f"""
-                SELECT *
-                FROM {self.link_collection_table}
-                """), engine.connect())
-                self.df_existing_links = pd.merge(
-                    self.df_existing_links, df_saved_links, on="link", how='left'
-                )
         else:
             self.df_existing_links = None
 
@@ -204,21 +202,20 @@ class CarDataScraper:
 
         if self.df_existing_links is not None:
             # Update the estimated_sold_date for rows where link is not in the exclude list
-            query = sql_text("""
+            query = sql_text(
+                """
                 UPDATE car_links
                 SET estimated_sold_date = CURRENT_DATE
                 WHERE link NOT IN :exclude_links
                 AND estimated_sold_date is NULL
-            """)
+            """
+            )
 
             # Execute the query using the engine
             with engine.connect() as connection:
-                connection.execute(
-                    query,
-                    {"exclude_links": tuple(all_hrefs.to_list())}
-                )
+                connection.execute(query, {"exclude_links": tuple(all_hrefs.to_list())})
 
-            print('estimated_sold_date set')
+            print("estimated_sold_date set")
 
             # Extract the hrefs from page results
             new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["link"])]
@@ -244,8 +241,10 @@ class CarDataScraper:
         df_new_hrefs.drop_duplicates(inplace=True)
 
         # Update the links
-        df_new_hrefs.to_sql(self.link_collection_table, engine, if_exists='append', index=False)
-        print('Links are updated')
+        df_new_hrefs.to_sql(
+            self.link_collection_table, engine, if_exists="append", index=False
+        )
+        print("Links are updated")
 
         return new_links
 
@@ -265,7 +264,9 @@ class CarDataScraper:
         for i, link in enumerate(new_links):
             advertisement_data = scrape_car_data(link)
             if advertisement_data is not None:
-                advertisement_data.to_sql('car_data', engine, if_exists='append', index=False)
+                advertisement_data.to_sql(
+                    "car_data", engine, if_exists="append", index=False
+                )
                 success_count += 1
                 print(i)
             else:
@@ -277,13 +278,17 @@ class CarDataScraper:
         if failed_links:
             with engine.connect() as connection:
                 # SQL statement to delete rows from car_links where the link isn't in car_data
-                delete_statement = sql_text(f"""
+                delete_statement = sql_text(
+                    f"""
                 DELETE FROM {self.link_collection_table}
                 WHERE link IN :failed_links
-                """)
+                """
+                )
 
                 # Execute the delete statement
-                connection.execute(delete_statement, {"failed_links": tuple(failed_links)})
+                connection.execute(
+                    delete_statement, {"failed_links": tuple(failed_links)}
+                )
 
 
 if __name__ == "__main__":
