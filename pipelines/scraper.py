@@ -117,7 +117,12 @@ def scrape_car_data(link):
             special_car_info = special_car_info.str.replace("\x00", "")
 
         advertisement_data["feature_list"] = [special_car_info.to_list()]
-        advertisement_data["description"] = description
+
+        if not description:
+            advertisement_data["description"] = ''
+        else:
+            advertisement_data["description"] = description
+
         advertisement_data["link"] = link
         advertisement_data["chassis_number"] = chassis_number
 

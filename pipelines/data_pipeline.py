@@ -6,7 +6,6 @@ import logging
 import joblib
 
 from sqlalchemy import create_engine, text as sql_text
-from sqlalchemy import MetaData, Table
 from typing import List, Dict, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
 from googletrans import Translator
@@ -14,7 +13,7 @@ import simplemma
 
 # Setting up logging
 logging.basicConfig(
-    filename="data_process.log",
+    filename="../logs/data_process.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
@@ -104,6 +103,20 @@ def delete_all_records(engine) -> None:
         connection.commit()
 
 
+def add_missing_columns(df: pd.DataFrame, missing_columns: List[str]):
+    """
+    :param df: Dataframe to process
+    :param missing_columns:
+    :return:
+    """
+    df_processed = df.copy()
+    for col in missing_columns:
+        if col not in df_processed.columns:
+            df_processed[col] = None
+
+    return df_processed
+
+
 def handle_price(df: pd.DataFrame) -> pd.DataFrame:
     """
     Process the price columns in the dataframe.
@@ -113,17 +126,20 @@ def handle_price(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     df_processed = df.copy()
+    price_cols = ["vételár", "akciós ár", "extrákkal növelt ár", "vételár eur"]
 
     # Remove non-digit characters from the relevant columns.
-    for col in ["vételár", "akciós ár", "extrákkal növelt ár", "vételár eur"]:
+    for col in price_cols:
         df_processed[col] = df_processed[col].str.replace(r"\D", "", regex=True)
 
     # Replace NaN values in 'vételár' with values from 'akciós ár', then 'extrákkal növelt ár'.
-    for replace_col in ["akciós ár", "extrákkal növelt ár"]:
-        price_is_nan = df_processed["vételár"].isna()
-        df_processed.loc[price_is_nan, "vételár"] = df_processed.loc[
-            price_is_nan, replace_col
-        ].values
+    replace_col = "extrákkal növelt ár"
+    price_is_nan = df_processed["vételár"].isna()
+    df_processed.loc[price_is_nan, "vételár"] = df_processed.loc[
+        price_is_nan, replace_col
+    ].values
+
+    replace_col = "akciós ár"
 
     # Drop cars without a price.
     df_processed = df_processed[df_processed["vételár"] != ""]
@@ -192,7 +208,7 @@ def str_to_numeric(df: pd.DataFrame, columns: dict) -> pd.DataFrame:
     for column, dtype in columns.items():
         # Remove non-digit characters and convert to the desired numeric type
         df_transformed[column] = (
-            df_transformed[column].str.replace(r"\D", "", regex=True).astype(dtype)
+            df_transformed[column].str.replace(r"\D", "", regex=True).replace('', np.nan).astype(dtype)
         )
 
     return df_transformed
@@ -625,8 +641,8 @@ def process_financing(df: pd.DataFrame) -> pd.DataFrame:
     """
     df["financing"] = (
         df["financing"]
+        .fillna("100")
         .str.replace(r"\D", "", regex=True)
-        .replace({None: "100"})
         .astype(int)
     )
     return df
@@ -764,14 +780,30 @@ def drop_low_cardinality_columns(
     return df
 
 
-def main(
+def drop_empty_string_columns(df):
+    """
+    Drop columns from a DataFrame that contain any empty strings.
+
+    :param df: Input DataFrame
+    :return: DataFrame with columns containing empty strings dropped
+    """
+    # Find columns that contain empty strings
+    cols_to_drop = [col for col in df.columns if (df[col] == '').any()]
+    # Drop those columns
+    df_clean = df.drop(columns=cols_to_drop)
+    return df_clean
+
+
+def data_procession(
+    df: pd.DataFrame = None,
     output_table_name: str = "engineered_car_data",
-    json_filepath: str = "static/hun_eng_name_mapping.json",
-    settlements_filepath: str = "static/all_hun_settlement.csv",
-    word_map_file: str = "static/hun_word_map.json",
-    stop_words_file: str = "static/stopwords-hu.txt",
-    vectorizer_file: str = "vectorizer.joblib",
+    json_filepath: str = "../static/hun_eng_name_mapping.json",
+    settlements_filepath: str = "../static/all_hun_settlement.csv",
+    word_map_file: str = "../static/hun_word_map.json",
+    stop_words_file: str = "../static/stopwords-hu.txt",
+    vectorizer_file: str = "../models/vectorizer.joblib",
     initial_load: bool = False,
+    for_prediction: bool = False,
 ):
     engine = setup_database()
 
@@ -796,8 +828,12 @@ def main(
             LEFT JOIN engineered_car_data e ON c.link = e.link
             WHERE e.link IS NULL;
         """
-
-    df = read_sql_query(engine, query)
+    if df is None:
+        df = read_sql_query(engine, query)
+    else:
+        existing_columns_of_row_data = get_columns_names(engine, "car_data")
+        df = drop_empty_string_columns(df)
+        df = add_missing_columns(df, existing_columns_of_row_data)
 
     # Handle price
     df = handle_price(df)
@@ -823,7 +859,7 @@ def main(
     df = filter_price_outliers(df)
 
     # Drop extracted and useless columns
-    df = drop_unwanted_columns(df, "static/unwanted_columns_1.csv")
+    df = drop_unwanted_columns(df, "../static/unwanted_columns_1.csv")
 
     rename_dict = load_json_mapping(json_filepath)
     df = rename_dataframe_columns(df, rename_dict)
@@ -860,7 +896,7 @@ def main(
     # Drop all the column we don't want
     if initial_load:
         # Drop useless columns
-        df = drop_unwanted_columns(df, "static/unwanted_columns_2.csv")
+        df = drop_unwanted_columns(df, "../static/unwanted_columns_2.csv")
 
         # Handle missing values
         df = drop_high_nan_columns(df)
@@ -875,9 +911,12 @@ def main(
         columns_to_drop = list(set(df.columns) - set(existing_columns))
         df.drop(columns=columns_to_drop, errors="ignore")
 
-    # Store cleaned data
-    store_to_sql(df, engine, output_table_name)
+    if for_prediction:
+        return df
+    else:
+        # Store cleaned data
+        store_to_sql(df, engine, output_table_name)
 
 
 if __name__ == "__main__":
-    main(initial_load=False)
+    data_procession(initial_load=False)
