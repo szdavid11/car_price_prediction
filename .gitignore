@@ -3,6 +3,7 @@ catboost_info
 *.pickle
 *.log
 *.cbm
+.idea/
 */.DS_Store
 */__pycache__
 .DS_Store
