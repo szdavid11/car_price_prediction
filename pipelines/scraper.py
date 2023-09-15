@@ -15,6 +15,10 @@ engine = create_engine(DATABASE_URL)
 metadata = MetaData()
 metadata.reflect(bind=engine)
 
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
+
 
 def scrape_car_data(link):
     """
@@ -27,7 +31,7 @@ def scrape_car_data(link):
     """
     try:
         # Get the html content of the link
-        response = requests.get(link)
+        response = requests.get(link, headers=HEADERS)
 
         # Parse the html content
         soup = BeautifulSoup(response.content, "html.parser")
@@ -164,7 +168,7 @@ class CarDataScraper:
         :return:
         """
         url = self.BASE_URL + str(page_number)
-        response = requests.get(url)
+        response = requests.get(url, headers=HEADERS)
         soup = BeautifulSoup(response.content, "html.parser")
         matches = soup.find_all("a", {"class": ""})
 
