@@ -16,8 +16,11 @@ metadata = MetaData()
 metadata.reflect(bind=engine)
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/91.0.4472.124 Safari/537.36'
 }
+
+PROXY_NAME = f"{os.getenv('BRIGHT_USER')}:{os.getenv('BRIGHT_PASSWORD')}@brd.superproxy.io:22225"
 
 
 def scrape_car_data(link):
@@ -31,7 +34,7 @@ def scrape_car_data(link):
     """
     try:
         # Get the html content of the link
-        response = requests.get(link, headers=HEADERS)
+        response = requests.get(link, headers=HEADERS, proxies={'http': PROXY_NAME, 'https': PROXY_NAME})
 
         # Parse the html content
         soup = BeautifulSoup(response.content, "html.parser")
@@ -168,7 +171,7 @@ class CarDataScraper:
         :return:
         """
         url = self.BASE_URL + str(page_number)
-        response = requests.get(url, headers=HEADERS)
+        response = requests.get(url, headers=HEADERS, proxies={'http': PROXY_NAME, 'https': PROXY_NAME})
         soup = BeautifulSoup(response.content, "html.parser")
         matches = soup.find_all("a", {"class": ""})
 
