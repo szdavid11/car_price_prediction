@@ -117,7 +117,7 @@ def scrape_car_data(link):
         # Get oll special info about the car and clean it
         special_car_info = equipments + other
         special_car_info = pd.Series(special_car_info)
-        if special_car_info:
+        if len(special_car_info) > 0:
             special_car_info = special_car_info.str.strip()
             special_car_info = special_car_info.str.lower()
             special_car_info = special_car_info.dropna()
