@@ -288,7 +288,7 @@ def convert_creation_date_to_age(df: pd.DataFrame) -> pd.DataFrame:
         df_transformed["évjárat"].str.replace(r"\(.+\)", "", regex=True)
     )
     df_transformed["age (year)"] = (
-        (pd.to_datetime("2023-06") - df_transformed["évjárat"]).astype("timedelta64[D]")
+        (pd.to_datetime("2023-06") - df_transformed["évjárat"]).days
         / 365
     ).astype(int)
     df_transformed.drop(
