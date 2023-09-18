@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine, MetaData, text as sql_text
+from io import StringIO
 
 
 # Create engine and base
@@ -58,7 +59,7 @@ def scrape_car_data(link):
         table_html = str(soup.find_all("table", {"class": "hirdetesadatok"})[0])
 
         # Read the table with pandas and
-        advertisement_data = pd.read_html(table_html)[0]
+        advertisement_data = pd.read_html(StringIO(table_html))[0]
 
         # Clean the data
         advertisement_data.columns = ["key", "value"]
@@ -115,8 +116,8 @@ def scrape_car_data(link):
 
         # Get oll special info about the car and clean it
         special_car_info = equipments + other
+        special_car_info = pd.Series(special_car_info)
         if special_car_info:
-            special_car_info = pd.Series(special_car_info)
             special_car_info = special_car_info.str.strip()
             special_car_info = special_car_info.str.lower()
             special_car_info = special_car_info.dropna()
@@ -267,6 +268,16 @@ class CarDataScraper:
         """
         print("Update links of the cars. This may take a while. (~30 minutes)")
         new_links = self.update_links()
+        '''
+        sql = """
+            select cl.*
+            from car_links cl 
+            left outer join car_data cd 
+            on cl.link = cd.link 
+            where cd.link is null;
+        """
+        new_links = pd.read_sql(sql_text(sql), engine.connect())["link"]
+        '''
 
         print("Collect data of the cars. This may take a while. (~3 hours)")
         print("Number of new cars:", len(new_links))
