@@ -1,4 +1,5 @@
 import sys
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from catboost import CatBoostRegressor
@@ -35,7 +36,7 @@ class CarLink(BaseModel):
     link: str
 
 
-def predict_price(link: str) -> int:
+def predict_price(link: str) -> tuple[int, int]:
     """
     Predicts the car price from the link.
     :param link: The link of the car on hasznaltautok.hu
@@ -69,7 +70,7 @@ def predict_price(link: str) -> int:
     # Make prediction
     prediction = model.predict(df_processed[model.feature_names_])[0]
 
-    return int(10 ** prediction), df_processed['price (HUF)'].values[0]
+    return int(10 ** prediction), int(df_processed['price (HUF)'].values[0])
 
 
 @app.post("/predict/")
@@ -79,7 +80,7 @@ def predict_car_price(car_link: CarLink):
     """
     link = car_link.link
     prediction, original = predict_price(link)
-    return {"predicted_price": prediction, "originial_price": original}
+    return {"predicted_price": prediction, "original_price": original}
 
 
 if __name__ == '__main__':
