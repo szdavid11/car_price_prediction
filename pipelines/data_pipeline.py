@@ -9,7 +9,6 @@ import joblib
 from sqlalchemy import create_engine, text as sql_text
 from typing import List, Dict, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
-from googletrans import Translator
 import simplemma
 
 # Setting up logging
@@ -738,15 +737,33 @@ def apply_tfidf_vectorization(
         vectorizer.fit(df["description_lemmatized"])
         joblib.dump(vectorizer, vectorizer_file)
 
+    tfidf_feature_names = vectorizer.get_feature_names_out()
     X = vectorizer.transform(df["description_lemmatized"])
-
-    translator = Translator()
-    translations = translator.translate(
-        list(vectorizer.get_feature_names_out()), src="hu", dest="en"
-    )
+    # TODO: Implement a better way to map the names of the features
+    translator_map = {
+        'csere': 'exchange',
+        'elad': 'sell',
+        'elektromos': 'electronic',
+        'eset': 'case',
+        'felszereltség': 'equipment',
+        'garancia': 'guarantee',
+        'gyári': 'factory',
+        'gépkocsi': 'car',
+        'használ': 'use',
+        'hirdetés': 'ad',
+        'kilométer': 'kilometer',
+        'kér': 'please',
+        'megtekintés': 'viewtechnical',
+        'műszaki': 'system',
+        'rendszer': 'service',
+        'szerviz': 'owner',
+        'tulajdonos': 'lead',
+        'vezet': 'state',
+        'állapot': 'seat'
+    }
 
     tfidf_df = pd.DataFrame(
-        X.toarray(), columns=["tfidf_" + x.text.lower() for x in translations]
+        X.toarray(), columns=["tfidf_" + translator_map[x].lower() for x in tfidf_feature_names]
     )
     tfidf_df.rename(
         columns={"tfidf_sports": "tfidf_sport"}, errors="ignore", inplace=True
