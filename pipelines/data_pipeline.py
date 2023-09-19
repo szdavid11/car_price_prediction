@@ -11,6 +11,7 @@ from typing import List, Dict, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
 import simplemma
 
+
 # Setting up logging
 logging.basicConfig(
     filename="../logs/data_process.log",

@@ -1,3 +1,4 @@
+import re
 import sys
 
 from fastapi import FastAPI, HTTPException
@@ -10,6 +11,9 @@ from pipelines.scraper import scrape_car_data
 from pipelines.data_pipeline import data_procession
 
 from fastapi.middleware.cors import CORSMiddleware
+import shap
+import matplotlib.pyplot as plt
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
@@ -31,12 +35,31 @@ app.add_middleware(
 model = CatBoostRegressor()
 model.load_model('../models/car_price_predictor.cbm')
 
+# Initialize explainer (do this only once after loading the model)
+explainer = shap.Explainer(model)
+
 
 class CarLink(BaseModel):
     link: str
 
 
-def predict_price(link: str) -> tuple[int, int]:
+def save_shap_waterfall(df_processed, link):
+    # Get SHAP values for the instance
+    shap_values = explainer(df_processed[model.feature_names_])
+
+    # Create a waterfall plot
+    plt.figure()
+    shap.plots.waterfall(shap_values[0])
+
+    # Save plot
+    name_tag = re.sub("#sid.*", "", link.split('/')[-1])
+    png_file_name = f"shap_waterfall_{name_tag}.png"
+    plt.savefig(png_file_name)
+
+    return png_file_name
+
+
+def prediction_process(link: str) -> tuple[int, int, str]:
     """
     Predicts the car price from the link.
     :param link: The link of the car on hasznaltautok.hu
@@ -69,8 +92,14 @@ def predict_price(link: str) -> tuple[int, int]:
 
     # Make prediction
     prediction = model.predict(df_processed[model.feature_names_])[0]
+    png_file_name = save_shap_waterfall(df_processed, link)
 
-    return int(10 ** prediction), int(df_processed['price (HUF)'].values[0])
+    return int(10 ** prediction), int(df_processed['price (HUF)'].values[0]), png_file_name
+
+@app.get("/shap-image/{file_name}")
+async def get_shap_image(file_name: str):
+    file_path = f"./{file_name}"  # Adjust the path if saved elsewhere
+    return FileResponse(file_path, media_type="image/png")
 
 
 @app.post("/predict/")
@@ -79,11 +108,15 @@ def predict_car_price(car_link: CarLink):
     Predicts the car price from the link provided.
     """
     link = car_link.link
-    prediction, original = predict_price(link)
-    return {"predicted_price": prediction, "original_price": original}
+    prediction, original, saved_plot_path = prediction_process(link)
+    return {
+        "predicted_price": prediction,
+        "original_price": original,
+        "shap_image_url": f"/shap-image/{saved_plot_path}"
+    }
 
 
 if __name__ == '__main__':
-    predict_price(
+    prediction_process(
         "https://www.hasznaltauto.hu/szemelyauto/mercedes-benz/eqs/mercedes-benz_eqs_580_4matic_afa-s_2000_km-19005067"
     )

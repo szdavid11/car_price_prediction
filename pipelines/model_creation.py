@@ -1,12 +1,18 @@
 import logging
 import os
-
+import sys
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from catboost import CatBoostRegressor
 from typing import List, Tuple, Optional
+
+# Get the directory of the currently executing script
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
+# Append it to sys.path
+sys.path.append(script_dir)
 
 from data_pipeline import read_sql_query, setup_database
 
@@ -91,6 +97,7 @@ def feature_importances_catboost(model: CatBoostRegressor) -> pd.DataFrame:
     # Sort the dataframe by importance in descending order
     feature_importances_df = feature_importances_df.sort_values('importance', ascending=False)
     return feature_importances_df
+
 
 def replace_less_frequent(ser: pd.Series, count_limit: int, max_feature_number: int) -> pd.Series:
     """
