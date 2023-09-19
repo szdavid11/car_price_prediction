@@ -96,10 +96,9 @@ def prediction_process(link: str) -> tuple[int, int, str]:
 
     return int(10 ** prediction), int(df_processed['price (HUF)'].values[0]), png_file_name
 
-@app.get("/shap-images/{file_name}")
+@app.get("{file_name}")
 async def get_shap_image(file_name: str):
-    file_path = f"./{file_name}"  # Adjust the path if saved elsewhere
-    return FileResponse(file_path, media_type="image/png")
+    return FileResponse(file_name, media_type="image/png")
 
 
 @app.post("/predict/")
