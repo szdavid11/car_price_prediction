@@ -278,7 +278,6 @@ class CarDataScraper:
         """
         new_links = pd.read_sql(sql_text(sql), engine.connect())["link"]
         '''
-
         print("Collect data of the cars. This may take a while. (~3 hours)")
         print("Number of new cars:", len(new_links))
 
