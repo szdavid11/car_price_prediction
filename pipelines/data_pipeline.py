@@ -753,13 +753,14 @@ def apply_tfidf_vectorization(
         'hirdetés': 'ad',
         'kilométer': 'kilometer',
         'kér': 'please',
-        'megtekintés': 'viewtechnical',
-        'műszaki': 'system',
-        'rendszer': 'service',
-        'szerviz': 'owner',
-        'tulajdonos': 'lead',
-        'vezet': 'state',
-        'állapot': 'seat'
+        'megtekintés': 'view',
+        'műszaki': 'technical',
+        'rendszer': 'system',
+        'szerviz': 'service',
+        'tulajdonos': 'owner',
+        'vezet': 'leads',
+        'állapot': 'condition',
+        'ülés': 'seat'
     }
 
     tfidf_df = pd.DataFrame(
