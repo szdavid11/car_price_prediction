@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import logging
@@ -282,13 +283,13 @@ def convert_creation_date_to_age(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Input dataframe to be transformed.
     :return: Transformed dataframe.
     """
-
+    current_month = str(datetime.now())[:7]
     df_transformed = df.copy()
     df_transformed["évjárat"] = pd.to_datetime(
         df_transformed["évjárat"].str.replace(r"\(.+\)", "", regex=True)
     )
     df_transformed["age (year)"] = (
-        (pd.to_datetime("2023-06") - df_transformed["évjárat"]).astype("timedelta64[D]")
+        (pd.to_datetime(current_month) - df_transformed["évjárat"]).dt.days
         / 365
     ).astype(int)
     df_transformed.drop(
@@ -305,7 +306,7 @@ def convert_technical_license_validity_date(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Input dataframe to be transformed.
     :return: Transformed dataframe.
     """
-
+    current_month = str(datetime.now())[:7]
     df_transformed = df.copy()
     df_transformed["műszaki vizsga érvényes"] = np.where(
         df_transformed["műszaki vizsga érvényes"].str.contains(r"^/", regex=True),
@@ -314,8 +315,8 @@ def convert_technical_license_validity_date(df: pd.DataFrame) -> pd.DataFrame:
     )
     df_transformed["műszaki vizsga érvényes"] = (
         pd.to_datetime(df_transformed["műszaki vizsga érvényes"])
-        - pd.to_datetime("2023-06")
-    ).astype("timedelta64[D]")
+        - pd.to_datetime(current_month)
+    ).dt.days
 
     return df_transformed
 
