@@ -8,8 +8,23 @@ sys.path.append('../')
 from pipelines.scraper import scrape_car_data
 from pipelines.data_pipeline import data_procession
 
-# Initialize the FastAPI app
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
+
+# Add CORS middleware
+origins = [
+    "https://szalaidatasolutions.online",  # Allow your hostinger domain
+    "http://localhost",  # Allow requests from localhost (for local testing)
+]
+
+app.add_middleware(
+     CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load the model
 model = CatBoostRegressor()
@@ -54,7 +69,7 @@ def predict_price(link: str) -> int:
     # Make prediction
     prediction = model.predict(df_processed[model.feature_names_])[0]
 
-    return int(10 ** prediction)
+    return int(10 ** prediction), df_processed['price (HUF)'].values[0]
 
 
 @app.post("/predict/")
@@ -63,8 +78,8 @@ def predict_car_price(car_link: CarLink):
     Predicts the car price from the link provided.
     """
     link = car_link.link
-    prediction = predict_price(link)
-    return {"predicted_price": prediction}
+    prediction, original = predict_price(link)
+    return {"predicted_price": prediction, "originial_price": original}
 
 
 if __name__ == '__main__':
