@@ -12,3 +12,7 @@ pydantic>=1.10.8
 psycopg2-binary>=2.9.7
 lxml>=4.9.3
 uvicorn>=0.23.2
+
+datetime>=5.1
+shap>=0.42.1
+matplotlib>=3.7.1
