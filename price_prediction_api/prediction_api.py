@@ -47,14 +47,37 @@ def save_shap_waterfall(df_processed, link):
     # Get SHAP values for the instance
     shap_values = explainer(df_processed[model.feature_names_])
 
+    shap_one = shap_values[0]
+    new_base = 10**shap_one.base_values
+    new_values = []
+    current_value = shap_one.base_values
+
+    for val in shap_one.values:
+        diff = (10**(current_value+val)) - (10**current_value)
+        new_values.append(diff)
+        current_value = current_value+val
+
+
+    # Round the numbers
+    new_values = ((np.array(new_values)/1000).round()*1000).astype(int)
+    new_base = int(round(new_base/1000))*1000
+
+    new_shap_exp = shap._explanation.Explanation(
+            values=new_values, 
+            base_values=new_base, 
+            data=shap_one.data, 
+            feature_names=model.feature_names_
+    )
+
     # Create a waterfall plot
     plt.figure()
-    shap.plots.waterfall(shap_values[0])
+    shap.plots.waterfall(new_shap_exp)
 
     # Save plot
     name_tag = re.sub("#sid.*", "", link.split('/')[-1])
-    png_file_name = f"shap-images/shap_waterfall_{name_tag}.png"
-    plt.savefig(png_file_name)
+    png_file_name = f"shap_waterfall_{name_tag}.png"
+    plt.tight_layout()
+    plt.savefig("shap-images/"+png_file_name)
 
     return png_file_name
 
@@ -94,11 +117,12 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     prediction = model.predict(df_processed[model.feature_names_])[0]
     png_file_name = save_shap_waterfall(df_processed, link)
 
-    return int(10 ** prediction), int(df_processed['price (HUF)'].values[0]), png_file_name
+    return int(round(10 ** prediction/1000)*1000), int(df_processed['price (HUF)'].values[0]), png_file_name
 
-@app.get("{file_name}")
+
+@app.get("/shap-image/{file_name}")
 async def get_shap_image(file_name: str):
-    return FileResponse(file_name, media_type="image/png")
+    return FileResponse('shap-images/'+file_name, media_type="image/png")
 
 
 @app.post("/predict/")
@@ -111,7 +135,7 @@ def predict_car_price(car_link: CarLink):
     return {
         "predicted_price": prediction,
         "original_price": original,
-        "shap_image_url": saved_plot_path
+        "plot_path": saved_plot_path
     }
 
 
