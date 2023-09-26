@@ -151,6 +151,7 @@ async def get_some_good_deals(number_of_urls: int):
             LEFT join engineered_car_data ecd on pp.link = ecd.link
             WHERE pp.predicted_price > ecd."price (HUF)"
             AND cl.estimated_sold_date is NULL
+            AND cl.collected_at > now() - interval '5 days'
         ) foo
         ORDER BY price_difference DESC 
         LIMIT {number_of_urls}
