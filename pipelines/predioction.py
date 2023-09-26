@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 
 
-def write_predictions_into_database(df: pd.DataFrame) -> None:
+def write_predictions_into_database() -> None:
     """
     Write the predictions into the database.
 
@@ -22,7 +22,7 @@ def write_predictions_into_database(df: pd.DataFrame) -> None:
     """
 
     # Get the database connection
-    conn = setup_database()
+    engine = setup_database()
 
     # Load the model
     model = CatBoostRegressor()
@@ -30,13 +30,13 @@ def write_predictions_into_database(df: pd.DataFrame) -> None:
 
     # Read new data from database
     query = f"""
-    SELECT link, {", ".join(model.feature_names_)}
+    SELECT ecd.link, "{'", "'.join(model.feature_names_)}"
     FROM engineered_car_data ecd
     LEFT  JOIN predicted_prices pp on pp.link = ecd.link
-    WHERE  pp.link IS NULL
+    WHERE  pp.predicted_price IS NULL;
     """
 
-    df = read_sql_query(query, conn)
+    df = read_sql_query(engine, query)
 
     # If there is no new data, return
     if len(df) == 0:
@@ -63,15 +63,16 @@ def write_predictions_into_database(df: pd.DataFrame) -> None:
             df[col] = df[col].fillna(np.nan)
 
     # Write the predictions into the database
-    df.to_sql('predictions', con=conn, if_exists='append', index=False)
+    df.to_sql('predictions', con=engine, if_exists='append', index=False)
 
     # Predict the prices
     predictions = model.predict(df[model.feature_names_])
 
     # Write the predictions into the database
     df_predictions = pd.DataFrame({'link': df.index, 'predicted_price': predictions})
-    df_predictions.to_sql('predicted_prices', con=conn, if_exists='append', index=False)
+    df_predictions['predicted_price'] = 10**df_predictions['predicted_price'].astype(int)
+    df_predictions.to_sql('predicted_prices', con=engine, if_exists='append', index=False)
 
-    conn.close()
 
-
+if __name__ == '__main__':
+    write_predictions_into_database()

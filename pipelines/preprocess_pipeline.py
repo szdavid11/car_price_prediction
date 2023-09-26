@@ -839,7 +839,7 @@ def data_procession(
         # For update keep the columns we choose in the initial load
         existing_columns = get_columns_names(engine, "engineered_car_data")
         columns_to_drop = list(set(df.columns) - set(existing_columns))
-        df.drop(columns=columns_to_drop, errors="ignore")
+        df.drop(columns=columns_to_drop, errors="ignore", inplace=True)
 
     if for_prediction:
         return df

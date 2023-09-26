@@ -5,10 +5,12 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from catboost import CatBoostRegressor
 import numpy as np
+from fastapi.responses import HTMLResponse
 
 sys.path.append('../')
 from pipelines.scraper import scrape_car_data
-from pipelines.data_pipeline import data_procession
+from pipelines.preprocess_pipeline import data_procession
+from pipelines.database_helpers import read_sql_query, setup_database
 
 from fastapi.middleware.cors import CORSMiddleware
 import shap
@@ -24,7 +26,7 @@ origins = [
 ]
 
 app.add_middleware(
-     CORSMiddleware,
+    CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
@@ -48,24 +50,24 @@ def save_shap_waterfall(df_processed, link):
     shap_values = explainer(df_processed[model.feature_names_])
 
     shap_one = shap_values[0]
-    new_base = 10**shap_one.base_values
+    new_base = 10 ** shap_one.base_values
     new_values = []
     current_value = shap_one.base_values
 
     for val in shap_one.values:
-        diff = (10**(current_value+val)) - (10**current_value)
+        diff = (10 ** (current_value + val)) - (10 ** current_value)
         new_values.append(diff)
-        current_value = current_value+val
+        current_value = current_value + val
 
     # Round the numbers
-    new_values = ((np.array(new_values)/1000).round()*1000).astype(int)
-    new_base = int(round(new_base/1000))*1000
+    new_values = ((np.array(new_values) / 1000).round() * 1000).astype(int)
+    new_base = int(round(new_base / 1000)) * 1000
 
     new_shap_exp = shap._explanation.Explanation(
-            values=new_values, 
-            base_values=new_base, 
-            data=shap_one.data, 
-            feature_names=model.feature_names_
+        values=new_values,
+        base_values=new_base,
+        data=shap_one.data,
+        feature_names=model.feature_names_
     )
 
     # Create a waterfall plot
@@ -81,7 +83,7 @@ def save_shap_waterfall(df_processed, link):
     # Save plot
     name_tag = re.sub("#sid.*", "", link.split('/')[-1])
     png_file_name = f"shap_waterfall_{name_tag}.png"
-    plt.savefig("shap-images/"+png_file_name)
+    plt.savefig("shap-images/" + png_file_name)
 
     return png_file_name
 
@@ -89,7 +91,7 @@ def save_shap_waterfall(df_processed, link):
 def prediction_process(link: str) -> tuple[int, int, str]:
     """
     Predicts the car price from the link.
-    :param link: The link of the car on hasznaltautok.hu
+    :param link: The link of the car on hasznaltauto.hu
     :return: The predicted price of the car
     """
 
@@ -121,16 +123,47 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     prediction = model.predict(df_processed[model.feature_names_])[0]
     png_file_name = save_shap_waterfall(df_processed, link)
 
-    return int(round(10 ** prediction/1000)*1000), int(df_processed['price (HUF)'].values[0]), png_file_name
+    return int(round(10 ** prediction / 1000) * 1000), int(df_processed['price (HUF)'].values[0]), png_file_name
 
 
 @app.get("/shap-image/{file_name}")
 async def get_shap_image(file_name: str):
-    return FileResponse('shap-images/'+file_name, media_type="image/png")
+    return FileResponse('shap-images/' + file_name, media_type="image/png")
+
+
+@app.get("/best-deals/{number_of_urls}", response_class=HTMLResponse)
+async def get_some_good_deals(number_of_urls: int):
+    """
+    Returns the best deals from the database.
+    """
+    engine = setup_database()
+
+    query = f"""
+        SELECT link as "URL", 
+        predicted_price as "Predicted price", 
+        original_price as "Original price"
+        FROM (
+            SELECT link, predicted_price, ecd."price (HUF)" as original_price, 
+            predicted_price - ecd."price (HUF)" as price_difference
+            FROM predicted_prices pp
+            LEFT join car_links cl on pp.link = cl.link
+            LEFT join engineered_car_data ecd on pp.link = ecd.link
+            WHERE pp.predicted_price > ecd.price_difference
+            AND car_links.estimated_sold_date is NULL
+        )
+        ORDER BY price_difference DESC 
+        LIMIT {number_of_urls}
+    """
+    df = read_sql_query(engine, query)
+    df["Predicted price"] = (1000*(df["Predicted price"]/1000).astype(int)).astype(str) + " HUF"
+    df["Original price"] = (1000*(df["Original price"]/1000).astype(int)).astype(str) + " HUF"
+
+    # Convert DataFrame to HTML
+    return df.to_html()
 
 
 @app.post("/predict/")
-def predict_car_price(car_link: CarLink):
+async def predict_car_price(car_link: CarLink):
     """
     Predicts the car price from the link provided.
     """

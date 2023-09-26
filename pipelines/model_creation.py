@@ -162,7 +162,7 @@ def get_train_test(df: pd.DataFrame, target_name: str, non_feature_cols: Optiona
     return train_test_split(X, y, test_size=0.2, random_state=0)
 
 
-def training_process(output_file: str = 'models/car_price_predictor.cbm', max_feature_count: int = 50):
+def training_process(output_file: str = '../models/car_price_predictor.cbm', max_feature_count: int = 50):
     """
     Main workflow for training the model.
     """
@@ -194,7 +194,7 @@ def training_process(output_file: str = 'models/car_price_predictor.cbm', max_fe
 
     logging.info('Train the first model')
     X_train, X_test, y_train, y_test = get_train_test(df, target_log, [target])
-    model = regression_train(X_train, X_test, y_train, y_test, categorical_features)
+    model = regression_train(X_train, X_test, y_train, y_test, categorical_features, iterations=5000)
 
     # Test first model
     logging.info('All feature model')
