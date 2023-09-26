@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 
 sys.path.append('../')
 from pipelines.scraper import scrape_car_data
-from pipelines.preprocess_pipeline import data_procession
+from pipelines.preprocess_pipeline import data_processing
 from pipelines.database_helpers import read_sql_query, setup_database
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,7 +107,7 @@ def prediction_process(link: str) -> tuple[int, int, str]:
         raise HTTPException(status_code=500, detail="Data not scraped")
 
     # Process data
-    df_processed = data_procession(df_scraped, for_prediction=True)
+    df_processed = data_processing(df_scraped, for_prediction=True)
 
     # Check for missing columns and add them with appropriate default values
     cat_features_indices = model.get_cat_feature_indices()

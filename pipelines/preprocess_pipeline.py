@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -9,6 +10,13 @@ import joblib
 from typing import List, Dict, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
 import simplemma
+
+# Get the directory of the currently executing script
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
+# Append it to sys.path
+sys.path.append(script_dir)
+
 from database_helpers import (
     store_to_sql,
     setup_database,
@@ -724,7 +732,7 @@ def drop_empty_string_columns(df):
     return df_clean
 
 
-def data_procession(
+def data_processing(
     df: pd.DataFrame = None,
     output_table_name: str = "engineered_car_data",
     json_filepath: str = "../static/hun_eng_name_mapping.json",
@@ -849,4 +857,4 @@ def data_procession(
 
 
 if __name__ == "__main__":
-    data_procession(initial_load=False)
+    data_processing(initial_load=False)
