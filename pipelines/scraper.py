@@ -1,11 +1,20 @@
 import os
 import requests
 import re
+import logging
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine, MetaData, text as sql_text
 from io import StringIO
+
+
+# Setting up logging
+logging.basicConfig(
+    filename="../logs/scraping.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 
 # Create engine and base
@@ -137,6 +146,7 @@ def scrape_car_data(link):
         return advertisement_data
     except Exception as e:
         print(e)
+        logging.error(e)
         return None
 
 
@@ -295,6 +305,7 @@ class CarDataScraper:
                 failed_links.append(link)
 
         print("Number of total cars scraped:", success_count)
+        logging.info(f"Number of total cars scraped: {success_count}")
 
         # Delete unsuccessful links for links table
         if failed_links:

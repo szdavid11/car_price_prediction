@@ -17,7 +17,7 @@ sys.path.append(script_dir)
 from data_pipeline import read_sql_query, setup_database
 
 # Set up logging
-logging.basicConfig(filename='model_training.log', level=logging.INFO)
+logging.basicConfig(filename='../logs/model_training.log', level=logging.INFO)
 
 
 def regression_train(X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.Series, y_test: pd.Series,
