@@ -14,7 +14,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 # Append it to sys.path
 sys.path.append(script_dir)
 
-from data_pipeline import read_sql_query, setup_database
+from database_helpers import read_sql_query, setup_database
 
 # Set up logging
 logging.basicConfig(filename='../logs/model_training.log', level=logging.INFO)

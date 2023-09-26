@@ -1,4 +1,3 @@
-import os
 import requests
 import re
 import logging
@@ -27,9 +26,9 @@ username = config['database']['DB_USERNAME']
 password = config['database']['DB_PASSWORD']
 server_ip = config['database']['DB_SERVER_IP']
 port = config['database']['DB_PORT']
-DATABASE_URL = f"postgresql://{username}:{password}@{server_ip}:{port}/cardb"
+DATABASE_ACCESS = f"postgresql://{username}:{password}@{server_ip}:{port}/cardb"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_ACCESS)
 metadata = MetaData()
 metadata.reflect(bind=engine)
 

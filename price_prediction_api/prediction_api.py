@@ -1,6 +1,6 @@
 import re
 import sys
-
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from catboost import CatBoostRegressor
@@ -57,7 +57,6 @@ def save_shap_waterfall(df_processed, link):
         new_values.append(diff)
         current_value = current_value+val
 
-
     # Round the numbers
     new_values = ((np.array(new_values)/1000).round()*1000).astype(int)
     new_base = int(round(new_base/1000))*1000
@@ -70,13 +69,18 @@ def save_shap_waterfall(df_processed, link):
     )
 
     # Create a waterfall plot
-    plt.figure()
-    shap.plots.waterfall(new_shap_exp)
+    fig, ax = plt.subplots(figsize=(17, 5))
+    shap.plots.waterfall(new_shap_exp, show=False)
+    asd = ax.get_yticklabels()
+    values = np.array(pd.Series([x.get_text() for x in asd[1:10]]).str.split(' = ').to_list())
+    revers_values = pd.Series(values[:, 1]) + " = " + pd.Series(values[:, 0])
+
+    usd = [None] * 10 + [asd[0].get_text()] + list(revers_values)
+    ax.set_yticklabels(usd, ha='left', x=-0.55)  # Adjust the 'x' value as needed
 
     # Save plot
     name_tag = re.sub("#sid.*", "", link.split('/')[-1])
     png_file_name = f"shap_waterfall_{name_tag}.png"
-    plt.tight_layout()
     plt.savefig("shap-images/"+png_file_name)
 
     return png_file_name
