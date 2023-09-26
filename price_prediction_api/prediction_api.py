@@ -23,6 +23,7 @@ app = FastAPI()
 origins = [
     "https://szalaidatasolutions.online",  # Allow your hostinger domain
     "http://localhost",  # Allow requests from localhost (for local testing)
+    "https://builder.hostinger.com",
 ]
 
 app.add_middleware(
