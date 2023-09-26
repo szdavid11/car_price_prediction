@@ -143,14 +143,14 @@ async def get_some_good_deals(number_of_urls: int):
         predicted_price as "Predicted price", 
         original_price as "Original price"
         FROM (
-            SELECT link, predicted_price, ecd."price (HUF)" as original_price, 
+            SELECT pp.link, predicted_price, ecd."price (HUF)" as original_price, 
             predicted_price - ecd."price (HUF)" as price_difference
             FROM predicted_prices pp
             LEFT join car_links cl on pp.link = cl.link
             LEFT join engineered_car_data ecd on pp.link = ecd.link
-            WHERE pp.predicted_price > ecd.price_difference
-            AND car_links.estimated_sold_date is NULL
-        )
+            WHERE pp.predicted_price > ecd."price (HUF)"
+            AND cl.estimated_sold_date is NULL
+        ) foo
         ORDER BY price_difference DESC 
         LIMIT {number_of_urls}
     """
