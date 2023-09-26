@@ -152,6 +152,7 @@ async def get_some_good_deals(number_of_urls: int):
             WHERE pp.predicted_price > ecd."price (HUF)"
             AND cl.estimated_sold_date is NULL
             AND cl.collected_at > now() - interval '5 days'
+            AND original_price < 10000000
         ) foo
         ORDER BY price_difference DESC 
         LIMIT {number_of_urls}
