@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine, MetaData, text as sql_text
 from io import StringIO
+import configparser
 
 
 # Setting up logging
@@ -17,10 +18,17 @@ logging.basicConfig(
 )
 
 
-# Create engine and base
-username = os.getenv("DB_USERNAME")
-password = os.getenv("DB_PASSWORD")
-DATABASE_URL = f"postgresql://{username}:{password}@localhost:5432/cardb"
+# Load the configuration
+config = configparser.ConfigParser()
+config.read('../config/config.ini')  # You should provide the absolute path to your config file here.
+
+# Fetch values from the configuration
+username = config['database']['DB_USERNAME']
+password = config['database']['DB_PASSWORD']
+server_ip = config['database']['DB_SERVER_IP']
+port = config['database']['DB_PORT']
+DATABASE_URL = f"postgresql://{username}:{password}@{server_ip}:{port}/cardb"
+
 engine = create_engine(DATABASE_URL)
 metadata = MetaData()
 metadata.reflect(bind=engine)

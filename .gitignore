@@ -1,6 +1,7 @@
 .ipynb_checkpoints
 *.png
 catboost_info
+config/config.ini
 *.pickle
 *.log
 *.cbm
