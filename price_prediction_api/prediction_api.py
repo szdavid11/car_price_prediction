@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from catboost import CatBoostRegressor
 import numpy as np
-from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 
 sys.path.append('../')
 from pipelines.scraper import scrape_car_data
@@ -132,7 +132,7 @@ async def get_shap_image(file_name: str):
     return FileResponse('shap-images/' + file_name, media_type="image/png")
 
 
-@app.get("/best-deals/{number_of_urls}", response_class=HTMLResponse)
+@app.get("/best-deals/{number_of_urls}", response_class=JSONResponse)
 async def get_some_good_deals(number_of_urls: int):
     """
     Returns the best deals from the database.
@@ -160,7 +160,7 @@ async def get_some_good_deals(number_of_urls: int):
     df["Original price"] = (1000*(df["Original price"]/1000).astype(int)).astype(str) + " HUF"
 
     # Convert DataFrame to HTML
-    return df.to_html()
+    return JSONResponse({"data": df.to_dict(orient="records")})
 
 
 @app.post("/predict/")
