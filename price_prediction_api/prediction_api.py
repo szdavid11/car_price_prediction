@@ -84,7 +84,7 @@ def save_shap_waterfall(df_processed, link):
     # Save plot
     name_tag = re.sub("#sid.*", "", link.split('/')[-1])
     png_file_name = f"shap_waterfall_{name_tag}.png"
-    plt.savefig("shap-images/" + png_file_name)
+    plt.savefig("shap-images/" + png_file_name, bbox_inches='tight')
 
     return png_file_name
 
