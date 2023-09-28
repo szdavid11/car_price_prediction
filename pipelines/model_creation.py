@@ -186,12 +186,13 @@ def training_process(output_file: str = '../models/car_price_predictor.cbm', max
 
     logging.info('Handle high cardinality features')
     # Handle categorical values that are less frequent
+    """
     for col in categorical_features:
         if col == 'city':
             df[col] = replace_less_frequent(df[col], 500, 10)
         else:
             df[col] = replace_less_frequent(df[col], 1000, 10)
-
+    """
     logging.info('Train the first model')
     X_train, X_test, y_train, y_test = get_train_test(df, target_log, [target])
     model = regression_train(X_train, X_test, y_train, y_test, categorical_features, iterations=5000)

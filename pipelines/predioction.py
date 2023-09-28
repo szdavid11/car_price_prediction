@@ -49,11 +49,13 @@ def write_predictions_into_database() -> None:
     df[non_categorical_features] = df[non_categorical_features].astype(float)
 
     # Handle categorical values that are less frequent
+    """
     for col in categorical_features:
         if col == 'city':
             df[col] = replace_less_frequent(df[col], 500, 10)
         else:
             df[col] = replace_less_frequent(df[col], 1000, 10)
+    """
 
     # Handle missing values
     for col in model.feature_names_:
@@ -62,15 +64,12 @@ def write_predictions_into_database() -> None:
         else:
             df[col] = df[col].fillna(np.nan)
 
-    # Write the predictions into the database
-    df.to_sql('predictions', con=engine, if_exists='append', index=False)
-
     # Predict the prices
     predictions = model.predict(df[model.feature_names_])
 
     # Write the predictions into the database
     df_predictions = pd.DataFrame({'link': df.index, 'predicted_price': predictions})
-    df_predictions['predicted_price'] = 10**df_predictions['predicted_price'].astype(int)
+    df_predictions['predicted_price'] = (10**df_predictions['predicted_price']).astype(int)
     df_predictions.to_sql('predicted_prices', con=engine, if_exists='append', index=False)
 
 
