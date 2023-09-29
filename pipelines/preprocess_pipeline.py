@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 import logging
 import joblib
-
 from typing import List, Dict, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
 import simplemma
@@ -359,11 +358,12 @@ def determine_speaker_count(car_special_features: List[str]) -> float:
     return np.nan
 
 
-def filter_usable_features(feature_frequencies: pd.Series) -> List[str]:
+def filter_usable_features(feature_frequencies: pd.Series, min_feature_count: int = 1000) -> List[str]:
     """
     Filters out unwanted special features from the feature frequencies.
 
     :param feature_frequencies: Frequencies of special features.
+    :param min_feature_count: Minimum number of features
     :return: List of usable special features.
     """
     speaker_counts = [4, 6, 8, 10, 12]
@@ -375,8 +375,7 @@ def filter_usable_features(feature_frequencies: pd.Series) -> List[str]:
         "multimédia / navigáció",
         "egyéb információ",
     ]
-
-    usable_features = feature_frequencies[feature_frequencies > 1000].keys()
+    usable_features = feature_frequencies[feature_frequencies > min_feature_count].keys()
     return [feat for feat in usable_features if feat not in unwanted_features]
 
 
@@ -790,7 +789,11 @@ def data_processing(
 
     # Feature engineering
     feature_frequencies = extract_feature_frequencies(df)
-    usable_features = filter_usable_features(feature_frequencies)
+    if for_prediction or not initial_load:
+        usable_features = filter_usable_features(feature_frequencies, min_feature_count=0)
+    else:
+        usable_features = filter_usable_features(feature_frequencies, min_feature_count=1000)
+
     df = add_special_features(df, usable_features)
 
     # Drop extremely low prices

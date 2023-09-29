@@ -11,6 +11,7 @@ sys.path.append('../')
 from pipelines.scraper import scrape_car_data
 from pipelines.preprocess_pipeline import data_processing
 from pipelines.database_helpers import read_sql_query, setup_database
+from sqlalchemy import MetaData, Table
 
 from fastapi.middleware.cors import CORSMiddleware
 import shap
@@ -40,6 +41,10 @@ model.load_model('../models/car_price_predictor.cbm')
 
 # Initialize explainer (do this only once after loading the model)
 explainer = shap.Explainer(model)
+
+# Use SQLAlchemy to reflect the table structure
+metadata = MetaData()
+engine = setup_database()
 
 
 class CarLink(BaseModel):
@@ -95,6 +100,8 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     :param link: The link of the car on hasznaltauto.hu
     :return: The predicted price of the car
     """
+    table = Table('engineered_car_data', metadata, autoload_with=engine)
+    bool_columns = [col.name for col in table.columns if str(col.type).lower() == 'boolean']
 
     # Ensure the model has been loaded correctly
     if model is None:
@@ -110,6 +117,10 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     # Process data
     df_processed = data_processing(df_scraped, for_prediction=True)
 
+    # Convert bool columns to float
+    existing_bools = df_processed.select_dtypes(include=['bool']).columns
+    df_processed[existing_bools] = df_processed[existing_bools].astype(float)
+
     # Check for missing columns and add them with appropriate default values
     cat_features_indices = model.get_cat_feature_indices()
     for idx, col in enumerate(model.feature_names_):
@@ -117,6 +128,8 @@ def prediction_process(link: str) -> tuple[int, int, str]:
             # Fill missing categorical features with 'missing' and numerical features with np.nan
             if idx in cat_features_indices:
                 df_processed[col] = 'missing'
+            elif col in bool_columns:
+                df_processed[col] = 0.0
             else:
                 df_processed[col] = np.nan
 
@@ -137,7 +150,6 @@ async def get_some_good_deals(number_of_urls: int):
     """
     Returns the best deals from the database.
     """
-    engine = setup_database()
 
     query = f"""
         SELECT link as "URL", 
