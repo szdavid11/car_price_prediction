@@ -102,6 +102,8 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     """
     table = Table('engineered_car_data', metadata, autoload_with=engine)
     bool_columns = [col.name for col in table.columns if str(col.type).lower() == 'boolean']
+    cat_features_indices = model.get_cat_feature_indices()
+    cat_features = pd.Series(model.feature_names_).loc[cat_features_indices].values
 
     # Ensure the model has been loaded correctly
     if model is None:
@@ -119,10 +121,11 @@ def prediction_process(link: str) -> tuple[int, int, str]:
 
     # Convert bool columns to float
     existing_bools = df_processed.select_dtypes(include=['bool']).columns
+    existing_bools = [col for col in existing_bools if col in bool_columns]
+    existing_bools = [col for col in existing_bools if col not in cat_features]
     df_processed[existing_bools] = df_processed[existing_bools].astype(float)
 
     # Check for missing columns and add them with appropriate default values
-    cat_features_indices = model.get_cat_feature_indices()
     for idx, col in enumerate(model.feature_names_):
         if (col not in df_processed.columns) or (df_processed[col].values[0] is None):
             # Fill missing categorical features with 'missing' and numerical features with np.nan
