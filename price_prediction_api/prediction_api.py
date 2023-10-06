@@ -100,6 +100,8 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     :param link: The link of the car on hasznaltauto.hu
     :return: The predicted price of the car
     """
+    link = link.strip()
+
     table = Table('engineered_car_data', metadata, autoload_with=engine)
     bool_columns = [col.name for col in table.columns if str(col.type).lower() == 'boolean']
     cat_features_indices = model.get_cat_feature_indices()
