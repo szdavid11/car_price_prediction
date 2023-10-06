@@ -42,10 +42,13 @@ def write_predictions_into_database() -> None:
     if len(df) == 0:
         return
 
+    print('Number of new data', len(df))
+
     # Final changes on the dataset
     df.set_index('link', inplace=True)
-    categorical_features = list(df.select_dtypes(include=["object"]).columns)
-    non_categorical_features = list(df.select_dtypes(exclude=["object"]).columns)
+    cat_features_indices = model.get_cat_feature_indices()
+    categorical_features = pd.Series(model.feature_names_).loc[cat_features_indices].values
+    non_categorical_features = [col for col in df.columns if col not in categorical_features]
     df[non_categorical_features] = df[non_categorical_features].astype(float)
 
     # Handle categorical values that are less frequent
