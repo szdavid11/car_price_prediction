@@ -12,7 +12,20 @@ logging.basicConfig(
 )
 
 
-def store_to_sql(df: pd.DataFrame, engine: create_engine, table_name: str) -> None:
+def execute_query(engine: create_engine, query: str):
+    try:
+        logging.info(f"Start executing the query")
+        connection = engine.connect()
+        connection.execute(sql_text(query))
+        connection.commit()
+        connection.close()
+        logging.info("Query execute")
+    except Exception as e:
+        logging.error(f"Error while executing the query: {e}")
+        raise
+
+
+def store_to_sql(df: pd.DataFrame, engine: create_engine, table_name: str, is_exists: str = "append") -> None:
     """
     Store the DataFrame to a SQL table.
 
@@ -22,7 +35,7 @@ def store_to_sql(df: pd.DataFrame, engine: create_engine, table_name: str) -> No
     """
     try:
         logging.info(f"Storing data to table {table_name}...")
-        df.to_sql(table_name, engine, if_exists="append", index=False)
+        df.to_sql(table_name, engine, if_exists=is_exists, index=False)
         logging.info("Data stored successfully!")
     except Exception as e:
         logging.error(f"Error while storing data to SQL: {e}")

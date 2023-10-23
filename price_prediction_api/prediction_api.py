@@ -51,7 +51,7 @@ class CarLink(BaseModel):
     link: str
 
 
-def save_shap_waterfall(df_processed, link):
+def save_shap_waterfall(df_processed, link, max_display=20):
     # Get SHAP values for the instance
     shap_values = explainer(df_processed[model.feature_names_])
 
@@ -77,13 +77,15 @@ def save_shap_waterfall(df_processed, link):
     )
 
     # Create a waterfall plot
-    fig, ax = plt.subplots(figsize=(17, 5))
-    shap.plots.waterfall(new_shap_exp, show=False)
-    asd = ax.get_yticklabels()
-    values = np.array(pd.Series([x.get_text() for x in asd[1:10]]).str.split(' = ').to_list())
+    fig, ax = plt.subplots(figsize=(20, 5))  # Adjust the size for better visualization
+    shap.plots.waterfall(new_shap_exp, max_display=max_display, show=False)  # Increase max_display to max_display
+    y_labels = ax.get_yticklabels()
+
+    # Adjust the below y-label extraction for max_display features
+    values = np.array(pd.Series([x.get_text() for x in y_labels[1:max_display]]).str.split(' = ').to_list())
     revers_values = pd.Series(values[:, 1]) + " = " + pd.Series(values[:, 0])
 
-    usd = [None] * 10 + [asd[0].get_text()] + list(revers_values)
+    usd = [None] * max_display + [y_labels[0].get_text()] + list(revers_values)
     ax.set_yticklabels(usd, ha='left', x=-0.55)  # Adjust the 'x' value as needed
 
     # Save plot

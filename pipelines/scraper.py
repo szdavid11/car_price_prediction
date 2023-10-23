@@ -4,10 +4,13 @@ import logging
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-from sqlalchemy import create_engine, MetaData, text as sql_text
+from sqlalchemy import MetaData, text as sql_text
 from io import StringIO
-import configparser
-
+from database_helpers import (
+    execute_query,
+    setup_database,
+    read_sql_query
+)
 
 # Setting up logging
 logging.basicConfig(
@@ -16,19 +19,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-
-# Load the configuration
-config = configparser.ConfigParser()
-config.read('../config/config.ini')  # You should provide the absolute path to your config file here.
-
-# Fetch values from the configuration
-username = config['database']['DB_USERNAME']
-password = config['database']['DB_PASSWORD']
-server_ip = config['database']['DB_SERVER_IP']
-port = config['database']['DB_PORT']
-DATABASE_ACCESS = f"postgresql://{username}:{password}@{server_ip}:{port}/cardb"
-
-engine = create_engine(DATABASE_ACCESS)
+engine = setup_database()
 metadata = MetaData()
 metadata.reflect(bind=engine)
 
@@ -176,9 +167,10 @@ class CarDataScraper:
 
         # Load existing links
         if self.scraped_data_table in metadata.tables:
-            sql = f"SELECT link FROM {self.link_collection_table}"
-            links = pd.read_sql(sql_text(sql), engine.connect())["link"]
-            self.df_existing_links = pd.DataFrame({"link": links})
+            sql = f"SELECT cl.link, array_length(feature_list, 1) IS NULL as empty_features " \
+                  f"FROM {self.link_collection_table} cl " \
+                  f"LEFT JOIN {self.scraped_data_table} cd on cd.link = cl.link"
+            self.df_existing_links = pd.read_sql(sql_text(sql), engine.connect())
         else:
             self.df_existing_links = None
 
@@ -221,6 +213,8 @@ class CarDataScraper:
 
         all_links = pd.Series(np.concatenate(all_links))
         all_links = all_links.str.replace("#sid.*", "", regex=True)
+        all_links = all_links.drop_duplicates()
+
         return all_links
 
     def get_new_links(self) -> pd.Series:
@@ -229,30 +223,57 @@ class CarDataScraper:
         :return: series of new links
         """
         all_hrefs = self.get_all_links()
+        sql = """
+        SELECT *
+        FROM tmp_existing_links_asd
+        """
+        #all_hrefs = read_sql_query(engine, sql)['link']
+
+        df_hrefs = pd.DataFrame({'link': all_hrefs.values})
+        df_hrefs.to_sql('tmp_existing_links', engine, if_exists='replace', index=False)
+
+        execute_query(engine, "CREATE UNIQUE INDEX idx_tmp ON tmp_existing_links(link);")
 
         if self.df_existing_links is not None:
             # Update the estimated_sold_date for rows where link is not in the exclude list
-            query = sql_text(
-                """
+            set_sold_date_query = """
                 UPDATE car_links
                 SET estimated_sold_date = CURRENT_DATE
-                WHERE link NOT IN :exclude_links
-                AND estimated_sold_date is NULL
+                WHERE car_links.link in (
+                    select cl.link
+                    from car_links cl
+                    left join tmp_existing_links tel on tel.link = cl.link
+                    where cl.estimated_sold_date is null
+                    and tel.link is NULL
+                );
             """
-            )
 
             # Execute the query using the engine
-            with engine.connect() as connection:
-                connection.execute(query, {"exclude_links": tuple(all_hrefs.to_list())})
+            execute_query(engine, set_sold_date_query)
 
-            print("estimated_sold_date set")
+            # Remove links that has empty feature list but still available among all_hrefs
+            delete_links = all_hrefs[
+                all_hrefs.isin(
+                    self.df_existing_links[self.df_existing_links.empty_features]['link']
+                )
+            ]
+            delete_query = f"""
+                DELETE FROM car_links
+                WHERE link IN ('{"','".join(delete_links.to_list())}');
+            """
+
+            # Execute the delete query using the engine
+            execute_query(engine, delete_query)
+
+            print('Number of deleted links: ', len(delete_links))
+
+            # Deleted links not exists anymore we will scrape them
+            self.df_existing_links = self.df_existing_links[~self.df_existing_links.link.isin(delete_links)]
 
             # Extract the hrefs from page results
             new_links = all_hrefs[~all_hrefs.isin(self.df_existing_links["link"])]
         else:
             new_links = all_hrefs
-
-        new_links = new_links.drop_duplicates()
 
         return new_links
 
