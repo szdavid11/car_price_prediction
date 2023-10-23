@@ -1,11 +1,20 @@
 import requests
 import re
+import sys
+import os
 import logging
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 from sqlalchemy import MetaData, text as sql_text
 from io import StringIO
+
+# Get the directory of the currently executing script
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
+# Append it to sys.path
+sys.path.append(script_dir)
+
 from database_helpers import (
     execute_query,
     setup_database,
@@ -27,6 +36,7 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                   'Chrome/91.0.4472.124 Safari/537.36'
 }
+
 
 # PROXY_NAME = f"{os.getenv('BRIGHT_USER')}:{os.getenv('BRIGHT_PASSWORD')}@brd.superproxy.io:22225"
 
@@ -153,9 +163,9 @@ class CarDataScraper:
     BASE_URL = "https://www.hasznaltauto.hu/talalatilista/PCOG2VG3R3RDADH5S56ADN4Z3EEY7O2CQO2EEI5NGSXZLINGQROIZEVUDJAPZ6Z2NVQZVCVHLLDY47L4OJJJB43XPEGXEOUTIJB4JCV4QIGTMYWJ3BKIU4CBRPTAY5NECZNEQAJGF7OPJ6CB7EJCHBQGJIEBPMO4ZJE57JDB3CAC7LDSVHEUICRRZ3APOMHTEIC5NPWIZZWZ4JOSWHDXZHXKYDCOECG62ZWR6KNG5X3U3CQKHS4J2AVDYKJYEWO2CQGLSJZZT24ULD7GQCI3F5FE7W7EXQP4FCUIQMIW64YWGWLIAXDQRRZ3Z2F646IDCZVF2UUPJUP5QYHBEF4F7FVX6EMGUE2DEIYGPHUTR3FK74JF7QHH575DDQF7IQIW76QW7VAOIOTNZZ7B5TEX3KISPM5DHHV4VNBSJ62XQX4OTSKSKTSNMZMXPZWU67NNG6MVJLEFBIV57HKRVZNCSE6RO4TZRHAFV6QVA7MLEQOJK2GMAPQZFKCOOU4KEGPZAQNRMHTCF3GAGHAIUNK4GF3B7IRL5VR5HM3UM3OH43FVFGP3TBL43LQHO6DOVUIXRSARGRNRAT4SFL5KWN3LXNUS2MXJ5JLY23C7GFGPXN4JDYSFC67YRZMNAO7LGA52BJ663Y4YLCPMXXYFO5QBXEJO3CWBM7UWVQGQNTCQL2BFKNDIF6SBG2NOXK3AFJ4XNQQ4FUGDLRGCCXBUXNOA74OXOSO3IV67THQRSRMDHITEXBACWYDLEQ3JQ2U5TNCORXQIR5UUMZT53WUXS4OHTUPEZ3GTBR2KMA4I3CBW4TUEBHVKEH7NN7KJ7DUQ2UNWXQ3MUZVLUZPQCT2DO7DFB3GJK5QOZAHHVUJZTLP5Q53LKRJXEB57WD3X72QGI/page"
 
     def __init__(
-        self,
-        link_collection_table="car_links",
-        scraped_data_table="car_data",
+            self,
+            link_collection_table="car_links",
+            scraped_data_table="car_data",
     ):
         """
         Scrapes the data from the hasznaltauto.hu website
@@ -170,7 +180,7 @@ class CarDataScraper:
             sql = f"SELECT cl.link, array_length(feature_list, 1) IS NULL as empty_features " \
                   f"FROM {self.link_collection_table} cl " \
                   f"LEFT JOIN {self.scraped_data_table} cd on cd.link = cl.link"
-            self.df_existing_links = pd.read_sql(sql_text(sql), engine.connect())
+            self.df_existing_links = read_sql_query(engine, sql)
         else:
             self.df_existing_links = None
 
@@ -223,12 +233,6 @@ class CarDataScraper:
         :return: series of new links
         """
         all_hrefs = self.get_all_links()
-        sql = """
-        SELECT *
-        FROM tmp_existing_links_asd
-        """
-        #all_hrefs = read_sql_query(engine, sql)['link']
-
         df_hrefs = pd.DataFrame({'link': all_hrefs.values})
         df_hrefs.to_sql('tmp_existing_links', engine, if_exists='replace', index=False)
 
