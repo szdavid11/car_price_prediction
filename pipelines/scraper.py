@@ -66,9 +66,13 @@ def scrape_car_data(link):
 
         history = soup.find_all("div", {"class": "car-history-card__cta"})
         if history:
-            chassis_number = re.findall(
-                r"elozetes-ellenorzes\?vin=(.+?)\&amp", str(history[0])
-            )[0]
+            try:
+                chassis_number = re.findall(
+                    r"elozetes-ellenorzes\?vin=(.+?)\&amp", str(history[0])
+                )[0]
+            except Exception as e:
+                logging.info(e)
+                chassis_number = None
         else:
             chassis_number = None
 
