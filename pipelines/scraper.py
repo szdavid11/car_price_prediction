@@ -314,6 +314,15 @@ class CarDataScraper:
         """
         print("Update links of the cars. This may take a while. (~30 minutes)")
         new_links = self.update_links()
+
+        # Get a sample of car_data table
+        car_data_sql = """
+            select *
+            from car_data
+            limit 1;
+        """
+        sample = read_sql_query(engine, car_data_sql)
+
         '''
         sql = """
             select cl.*
@@ -331,6 +340,9 @@ class CarDataScraper:
         failed_links = []
         for i, link in enumerate(new_links):
             advertisement_data = scrape_car_data(link)
+            # Keep only the existing columns
+            advertisement_data = advertisement_data[sample.columns]
+
             if advertisement_data is not None:
                 advertisement_data.to_sql(
                     "car_data", engine, if_exists="append", index=False
