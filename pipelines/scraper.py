@@ -1,3 +1,5 @@
+from typing import Optional
+
 import requests
 import re
 import sys
@@ -40,8 +42,22 @@ HEADERS = {
 
 # PROXY_NAME = f"{os.getenv('BRIGHT_USER')}:{os.getenv('BRIGHT_PASSWORD')}@brd.superproxy.io:22225"
 
+def adjust_dataframe_columns(dataframe, column_list):
+    # Keep only columns that are both in the dataframe and the column_list
+    columns_to_keep = [col for col in column_list if col in dataframe.columns]
+    dataframe = dataframe[columns_to_keep]
 
-def scrape_car_data(link):
+    # Add missing columns from column_list and fill with NaN
+    missing_columns = set(column_list) - set(dataframe.columns)
+    for column in missing_columns:
+        dataframe[column] = np.nan
+
+    # Reorder columns as per column_list
+    dataframe = dataframe.reindex(columns=column_list)
+
+    return dataframe
+
+def scrape_car_data(link: str) -> Optional[pd.DataFrame]:
     """
     Scrape car data from a link
     :param link: link of the car in hasznaltauto.hu
@@ -92,7 +108,7 @@ def scrape_car_data(link):
         ]
 
         # Transform dataframe key to columns and values to rows
-        # This will be easier to work with as we collect the car data inta rows of a dataframe
+        # This will be easier to work with as we collect the car data in rows of a dataframe
         advertisement_data = advertisement_data[
             advertisement_data["key"].str.contains(":$", regex=True)
         ]
@@ -322,7 +338,6 @@ class CarDataScraper:
             limit 1;
         """
         sample = read_sql_query(engine, car_data_sql)
-
         '''
         sql = """
             select cl.*
@@ -340,17 +355,17 @@ class CarDataScraper:
         failed_links = []
         for i, link in enumerate(new_links):
             advertisement_data = scrape_car_data(link)
-            # Keep only the existing columns
-            advertisement_data = advertisement_data[sample.columns]
-
-            if advertisement_data is not None:
-                advertisement_data.to_sql(
-                    "car_data", engine, if_exists="append", index=False
-                )
-                success_count += 1
-                print(i)
-            else:
+            if advertisement_data is None:
                 failed_links.append(link)
+                continue
+            # Keep only the existing columns
+            advertisement_data = adjust_dataframe_columns(advertisement_data, sample.columns)
+
+            advertisement_data.to_sql(
+                "car_data", engine, if_exists="append", index=False
+            )
+            success_count += 1
+            print(i)
 
         print("Number of total cars scraped:", success_count)
         logging.info(f"Number of total cars scraped: {success_count}")
