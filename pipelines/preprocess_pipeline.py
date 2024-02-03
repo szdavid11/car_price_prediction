@@ -51,11 +51,20 @@ def handle_price(df: pd.DataFrame) -> pd.DataFrame:
         df_processed[col] = df_processed[col].str.replace(r"\D", "", regex=True)
 
     # Replace NaN values in 'vételár' with values from 'akciós ár', then 'extrákkal növelt ár'.
-    replace_col = "extrákkal növelt ár"
-    price_is_nan = df_processed["vételár"].isna()
-    df_processed.loc[price_is_nan, "vételár"] = df_processed.loc[
-        price_is_nan, replace_col
-    ].values
+    replace_cols = ["akciós ár", "extrákkal növelt ár", "vételár eur"]
+    for replace_col in replace_cols:
+        try:
+            if replace_col == "vételár eur":
+                exchange_rate = 375
+            else:
+                exchange_rate = 1
+
+            price_is_nan = df_processed["vételár"].isna() | df_processed["vételár"] == ""
+            df_processed.loc[price_is_nan, "vételár"] = df_processed.loc[
+                price_is_nan, replace_col
+            ].astype(float).values * exchange_rate
+        except Exception as e:
+            logging.info(f"Column {replace_col} not found. Error: {e}")
 
     # Drop cars without a price.
     df_processed = df_processed[df_processed["vételár"] != ""]
@@ -64,12 +73,6 @@ def handle_price(df: pd.DataFrame) -> pd.DataFrame:
     # Convert 'vételár' to int.
     df_processed["vételár"] = df_processed["vételár"].astype(int)
     df_processed["vételár eur"] = df_processed["vételár eur"].astype(float)
-
-    # Convert EUR prices to HUF.
-    # Identify rows where the HUF and EUR price are the same.
-    valid_prices = (df_processed["vételár"] < 200000).values
-
-    df_processed = df_processed[valid_prices].reset_index(drop=True)
 
     return df_processed
 

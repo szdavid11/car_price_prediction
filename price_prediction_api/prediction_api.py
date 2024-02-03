@@ -109,6 +109,8 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     :return: The predicted price of the car
     """
     link = link.strip()
+    # Remove sid from the link
+    link = re.sub("#sid.*", "", link)
 
     table = Table("engineered_car_data", metadata, autoload_with=engine)
     bool_columns = [
@@ -216,5 +218,5 @@ async def predict_car_price(car_link: CarLink):
 
 if __name__ == "__main__":
     prediction_process(
-        "https://www.hasznaltauto.hu/szemelyauto/mercedes-benz/eqs/mercedes-benz_eqs_580_4matic_afa-s_2000_km-19005067"
+        "https://www.hasznaltauto.hu/szemelyauto/suzuki/vitara/suzuki_vitara_1.4_hybrid_gl_plusz_akar_2.1_millio_ar-elony_plusz_0_thm-18561661#sid=a85accce-4958-44b9-8804-0db38a662e13"
     )
