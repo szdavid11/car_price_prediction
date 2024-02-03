@@ -57,8 +57,6 @@ def handle_price(df: pd.DataFrame) -> pd.DataFrame:
         price_is_nan, replace_col
     ].values
 
-    replace_col = "akciós ár"
-
     # Drop cars without a price.
     df_processed = df_processed[df_processed["vételár"] != ""]
     df_processed = df_processed[~df_processed["vételár"].isna()]
@@ -69,17 +67,9 @@ def handle_price(df: pd.DataFrame) -> pd.DataFrame:
 
     # Convert EUR prices to HUF.
     # Identify rows where the HUF and EUR price are the same.
-    msk_eur_price = (
-        (df_processed["vételár"] == df_processed["vételár eur"])
-        & (df_processed["vételár"] < 200000)
-    ).values
-    euro_exchange_rate = 375
-    count_of_invalid_price = np.sum(msk_eur_price)
-    if np.sum(msk_eur_price) > 0:
-        print(
-            f"WARNING: {count_of_invalid_price} cars have inconsistent price value, EUR value is used!"
-        )
-        df_processed.loc[msk_eur_price, "vételár"] *= euro_exchange_rate
+    valid_prices = (df_processed["vételár"] < 200000).values
+
+    df_processed = df_processed[valid_prices].reset_index(drop=True)
 
     return df_processed
 
@@ -126,7 +116,10 @@ def str_to_numeric(df: pd.DataFrame, columns: dict) -> pd.DataFrame:
     for column, dtype in columns.items():
         # Remove non-digit characters and convert to the desired numeric type
         df_transformed[column] = (
-            df_transformed[column].str.replace(r"\D", "", regex=True).replace('', np.nan).astype(dtype)
+            df_transformed[column]
+            .str.replace(r"\D", "", regex=True)
+            .replace("", np.nan)
+            .astype(dtype)
         )
 
     return df_transformed
@@ -206,8 +199,7 @@ def convert_creation_date_to_age(df: pd.DataFrame) -> pd.DataFrame:
         df_transformed["évjárat"].str.replace(r"\(.+\)", "", regex=True)
     )
     df_transformed["age (year)"] = (
-        (pd.to_datetime(current_month) - df_transformed["évjárat"]).dt.days
-        / 365
+        (pd.to_datetime(current_month) - df_transformed["évjárat"]).dt.days / 365
     ).astype(int)
     df_transformed.drop(
         columns=["age_days"], errors="ignore", inplace=True
@@ -328,7 +320,7 @@ def filter_invalid_power_values(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # Filter rows where the difference between actual kW and expected kW (from LE) exceeds 10
-    valid_indices = ~(abs(p_le * 0.746 - p_kw) > 10)
+    valid_indices = abs(p_le * 0.746 - p_kw) < 10
     return df[valid_indices].reset_index(drop=True)
 
 
@@ -358,7 +350,9 @@ def determine_speaker_count(car_special_features: List[str]) -> float:
     return np.nan
 
 
-def filter_usable_features(feature_frequencies: pd.Series, min_feature_count: int = 1000) -> List[str]:
+def filter_usable_features(
+    feature_frequencies: pd.Series, min_feature_count: int = 1000
+) -> List[str]:
     """
     Filters out unwanted special features from the feature frequencies.
 
@@ -375,7 +369,9 @@ def filter_usable_features(feature_frequencies: pd.Series, min_feature_count: in
         "multimédia / navigáció",
         "egyéb információ",
     ]
-    usable_features = feature_frequencies[feature_frequencies > min_feature_count].keys()
+    usable_features = feature_frequencies[
+        feature_frequencies > min_feature_count
+    ].keys()
     return [feat for feat in usable_features if feat not in unwanted_features]
 
 
@@ -558,10 +554,7 @@ def process_financing(df: pd.DataFrame) -> pd.DataFrame:
     :return: Modified dataframe with processed 'financing' column.
     """
     df["financing"] = (
-        df["financing"]
-        .fillna("100")
-        .str.replace(r"\D", "", regex=True)
-        .astype(int)
+        df["financing"].fillna("100").str.replace(r"\D", "", regex=True).astype(int)
     )
     return df
 
@@ -659,30 +652,31 @@ def apply_tfidf_vectorization(
     X = vectorizer.transform(df["description_lemmatized"])
     # TODO: Implement a better way to map the names of the features
     translator_map = {
-        'csere': 'exchange',
-        'elad': 'sell',
-        'elektromos': 'electronic',
-        'eset': 'case',
-        'felszereltség': 'equipment',
-        'garancia': 'guarantee',
-        'gyári': 'factory',
-        'gépkocsi': 'car',
-        'használ': 'use',
-        'hirdetés': 'ad',
-        'kilométer': 'kilometer',
-        'kér': 'please',
-        'megtekintés': 'view',
-        'műszaki': 'technical',
-        'rendszer': 'system',
-        'szerviz': 'service',
-        'tulajdonos': 'owner',
-        'vezet': 'leads',
-        'állapot': 'condition',
-        'ülés': 'seat'
+        "csere": "exchange",
+        "elad": "sell",
+        "elektromos": "electronic",
+        "eset": "case",
+        "felszereltség": "equipment",
+        "garancia": "guarantee",
+        "gyári": "factory",
+        "gépkocsi": "car",
+        "használ": "use",
+        "hirdetés": "ad",
+        "kilométer": "kilometer",
+        "kér": "please",
+        "megtekintés": "view",
+        "műszaki": "technical",
+        "rendszer": "system",
+        "szerviz": "service",
+        "tulajdonos": "owner",
+        "vezet": "leads",
+        "állapot": "condition",
+        "ülés": "seat",
     }
 
     tfidf_df = pd.DataFrame(
-        X.toarray(), columns=["tfidf_" + translator_map[x].lower() for x in tfidf_feature_names]
+        X.toarray(),
+        columns=["tfidf_" + translator_map[x].lower() for x in tfidf_feature_names],
     )
     tfidf_df.rename(
         columns={"tfidf_sports": "tfidf_sport"}, errors="ignore", inplace=True
@@ -725,7 +719,7 @@ def drop_empty_string_columns(df):
     :return: DataFrame with columns containing empty strings dropped
     """
     # Find columns that contain empty strings
-    cols_to_drop = [col for col in df.columns if (df[col] == '').any()]
+    cols_to_drop = [col for col in df.columns if (df[col] == "").any()]
     # Drop those columns
     df_clean = df.drop(columns=cols_to_drop)
     return df_clean
@@ -790,9 +784,13 @@ def data_processing(
     # Feature engineering
     feature_frequencies = extract_feature_frequencies(df)
     if for_prediction or not initial_load:
-        usable_features = filter_usable_features(feature_frequencies, min_feature_count=0)
+        usable_features = filter_usable_features(
+            feature_frequencies, min_feature_count=0
+        )
     else:
-        usable_features = filter_usable_features(feature_frequencies, min_feature_count=1000)
+        usable_features = filter_usable_features(
+            feature_frequencies, min_feature_count=1000
+        )
 
     df = add_special_features(df, usable_features)
 
@@ -822,14 +820,6 @@ def data_processing(
     # Add TF-IDF features
     word_map = load_json_mapping(word_map_file)
     df = clean_and_lemmatize_description(df, word_map)
-
-    # list of stop words in Hungarian
-    with open(stop_words_file, "r", encoding="utf-8") as f:
-        stop_words = [line.strip() for line in f]
-
-    df = apply_tfidf_vectorization(
-        df, stop_words, max_features=20, vectorizer_file=vectorizer_file
-    )
 
     # Replace empty string to nan
     df.replace("", np.nan, inplace=True)

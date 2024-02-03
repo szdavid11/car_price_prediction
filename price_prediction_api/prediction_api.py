@@ -7,7 +7,7 @@ from catboost import CatBoostRegressor
 import numpy as np
 from fastapi.responses import JSONResponse
 
-sys.path.append('../')
+sys.path.append("../")
 from pipelines.scraper import scrape_car_data
 from pipelines.preprocess_pipeline import data_processing
 from pipelines.database_helpers import read_sql_query, setup_database
@@ -37,7 +37,7 @@ app.add_middleware(
 
 # Load the model
 model = CatBoostRegressor()
-model.load_model('../models/car_price_predictor.cbm')
+model.load_model("../models/car_price_predictor.cbm")
 
 # Initialize explainer (do this only once after loading the model)
 explainer = shap.Explainer(model)
@@ -56,12 +56,12 @@ def save_shap_waterfall(df_processed, link, max_display=20):
     shap_values = explainer(df_processed[model.feature_names_])
 
     shap_one = shap_values[0]
-    new_base = 10 ** shap_one.base_values
+    new_base = 10**shap_one.base_values
     new_values = []
     current_value = shap_one.base_values
 
     for val in shap_one.values:
-        diff = (10 ** (current_value + val)) - (10 ** current_value)
+        diff = (10 ** (current_value + val)) - (10**current_value)
         new_values.append(diff)
         current_value = current_value + val
 
@@ -73,25 +73,31 @@ def save_shap_waterfall(df_processed, link, max_display=20):
         values=new_values,
         base_values=new_base,
         data=shap_one.data,
-        feature_names=model.feature_names_
+        feature_names=model.feature_names_,
     )
 
     # Create a waterfall plot
     fig, ax = plt.subplots(figsize=(20, 5))  # Adjust the size for better visualization
-    shap.plots.waterfall(new_shap_exp, max_display=max_display, show=False)  # Increase max_display to max_display
+    shap.plots.waterfall(
+        new_shap_exp, max_display=max_display, show=False
+    )  # Increase max_display to max_display
     y_labels = ax.get_yticklabels()
 
     # Adjust the below y-label extraction for max_display features
-    values = np.array(pd.Series([x.get_text() for x in y_labels[1:max_display]]).str.split(' = ').to_list())
+    values = np.array(
+        pd.Series([x.get_text() for x in y_labels[1:max_display]])
+        .str.split(" = ")
+        .to_list()
+    )
     revers_values = pd.Series(values[:, 1]) + " = " + pd.Series(values[:, 0])
 
     usd = [None] * max_display + [y_labels[0].get_text()] + list(revers_values)
-    ax.set_yticklabels(usd, ha='left', x=-0.55)  # Adjust the 'x' value as needed
+    ax.set_yticklabels(usd, ha="left", x=-0.55)  # Adjust the 'x' value as needed
 
     # Save plot
-    name_tag = re.sub("#sid.*", "", link.split('/')[-1])
+    name_tag = re.sub("#sid.*", "", link.split("/")[-1])
     png_file_name = f"shap_waterfall_{name_tag}.png"
-    plt.savefig("shap-images/" + png_file_name, bbox_inches='tight')
+    plt.savefig("shap-images/" + png_file_name, bbox_inches="tight")
 
     return png_file_name
 
@@ -104,8 +110,10 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     """
     link = link.strip()
 
-    table = Table('engineered_car_data', metadata, autoload_with=engine)
-    bool_columns = [col.name for col in table.columns if str(col.type).lower() == 'boolean']
+    table = Table("engineered_car_data", metadata, autoload_with=engine)
+    bool_columns = [
+        col.name for col in table.columns if str(col.type).lower() == "boolean"
+    ]
     cat_features_indices = model.get_cat_feature_indices()
     cat_features = pd.Series(model.feature_names_).loc[cat_features_indices].values
 
@@ -124,7 +132,7 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     df_processed = data_processing(df_scraped, for_prediction=True)
 
     # Convert bool columns to float
-    existing_bools = df_processed.select_dtypes(include=['bool']).columns
+    existing_bools = df_processed.select_dtypes(include=["bool"]).columns
     existing_bools = [col for col in existing_bools if col in bool_columns]
     existing_bools = [col for col in existing_bools if col not in cat_features]
     df_processed[existing_bools] = df_processed[existing_bools].astype(float)
@@ -134,7 +142,7 @@ def prediction_process(link: str) -> tuple[int, int, str]:
         if (col not in df_processed.columns) or (df_processed[col].values[0] is None):
             # Fill missing categorical features with 'missing' and numerical features with np.nan
             if idx in cat_features_indices:
-                df_processed[col] = 'missing'
+                df_processed[col] = "missing"
             elif col in bool_columns:
                 df_processed[col] = 0.0
             else:
@@ -144,12 +152,16 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     prediction = model.predict(df_processed[model.feature_names_])[0]
     png_file_name = save_shap_waterfall(df_processed, link)
 
-    return int(round(10 ** prediction / 1000) * 1000), int(df_processed['price (HUF)'].values[0]), png_file_name
+    return (
+        int(round(10**prediction / 1000) * 1000),
+        int(df_processed["price (HUF)"].values[0]),
+        png_file_name,
+    )
 
 
 @app.get("/shap-image/{file_name}")
 async def get_shap_image(file_name: str):
-    return FileResponse('shap-images/' + file_name, media_type="image/png")
+    return FileResponse("shap-images/" + file_name, media_type="image/png")
 
 
 @app.get("/best-deals/{number_of_urls}", response_class=JSONResponse)
@@ -177,8 +189,12 @@ async def get_some_good_deals(number_of_urls: int):
         LIMIT {number_of_urls}
     """
     df = read_sql_query(engine, query)
-    df["Predicted price"] = (1000*(df["Predicted price"]/1000).astype(int)).astype(str) + " HUF"
-    df["Original price"] = (1000*(df["Original price"]/1000).astype(int)).astype(str) + " HUF"
+    df["Predicted price"] = (1000 * (df["Predicted price"] / 1000).astype(int)).astype(
+        str
+    ) + " HUF"
+    df["Original price"] = (1000 * (df["Original price"] / 1000).astype(int)).astype(
+        str
+    ) + " HUF"
 
     # Convert DataFrame to HTML
     return JSONResponse({"data": df.to_dict(orient="records")})
@@ -194,11 +210,11 @@ async def predict_car_price(car_link: CarLink):
     return {
         "predicted_price": prediction,
         "original_price": original,
-        "plot_path": saved_plot_path
+        "plot_path": saved_plot_path,
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     prediction_process(
         "https://www.hasznaltauto.hu/szemelyauto/mercedes-benz/eqs/mercedes-benz_eqs_580_4matic_afa-s_2000_km-19005067"
     )

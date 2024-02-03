@@ -25,7 +25,9 @@ def execute_query(engine: create_engine, query: str):
         raise
 
 
-def store_to_sql(df: pd.DataFrame, engine: create_engine, table_name: str, is_exists: str = "append") -> None:
+def store_to_sql(
+    df: pd.DataFrame, engine: create_engine, table_name: str, is_exists: str = "append"
+) -> None:
     """
     Store the DataFrame to a SQL table.
 
@@ -50,13 +52,15 @@ def setup_database() -> create_engine:
     """
     # Load the configuration
     config = configparser.ConfigParser()
-    config.read('../config/config.ini')  # You should provide the absolute path to your config file here.
+    config.read(
+        "../config/config.ini"
+    )  # You should provide the absolute path to your config file here.
 
     # Fetch values from the configuration
-    username = config['database']['DB_USERNAME']
-    password = config['database']['DB_PASSWORD']
-    server_ip = config['database']['DB_SERVER_IP']
-    port = config['database']['DB_PORT']
+    username = config["database"]["DB_USERNAME"]
+    password = config["database"]["DB_PASSWORD"]
+    server_ip = config["database"]["DB_SERVER_IP"]
+    port = config["database"]["DB_PORT"]
     database_access = f"postgresql://{username}:{password}@{server_ip}:{port}/cardb"
 
     engine = create_engine(database_access)
