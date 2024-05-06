@@ -26,18 +26,19 @@ def execute_query(engine: create_engine, query: str):
 
 
 def store_to_sql(
-    df: pd.DataFrame, engine: create_engine, table_name: str, is_exists: str = "append"
+    df: pd.DataFrame, engine: create_engine, table_name: str, if_exists: str = "append"
 ) -> None:
     """
     Store the DataFrame to a SQL table.
 
     :param df: DataFrame to be stored.
     :param engine: SQLAlchemy engine.
+    :param if_exists: What to do if the table already exists. Options are 'fail', 'replace', 'append'.
     :param table_name: Name of the table to store data.
     """
     try:
         logging.info(f"Storing data to table {table_name}...")
-        df.to_sql(table_name, engine, if_exists=is_exists, index=False)
+        df.to_sql(table_name, engine, if_exists=if_exists, index=False)
         logging.info("Data stored successfully!")
     except Exception as e:
         logging.error(f"Error while storing data to SQL: {e}")

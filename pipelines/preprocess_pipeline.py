@@ -59,10 +59,13 @@ def handle_price(df: pd.DataFrame) -> pd.DataFrame:
             else:
                 exchange_rate = 1
 
-            price_is_nan = df_processed["vételár"].isna() | df_processed["vételár"] == ""
-            df_processed.loc[price_is_nan, "vételár"] = df_processed.loc[
-                price_is_nan, replace_col
-            ].astype(float).values * exchange_rate
+            price_is_nan = (
+                df_processed["vételár"].isna() | df_processed["vételár"] == ""
+            )
+            df_processed.loc[price_is_nan, "vételár"] = (
+                df_processed.loc[price_is_nan, replace_col].astype(float).values
+                * exchange_rate
+            )
         except Exception as e:
             logging.info(f"Column {replace_col} not found. Error: {e}")
 

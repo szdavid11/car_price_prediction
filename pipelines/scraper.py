@@ -171,9 +171,7 @@ def scrape_car_data(link: str) -> Optional[pd.DataFrame]:
         advertisement_data["link"] = link
         advertisement_data["chassis_number"] = chassis_number
         # Rename the column 'alaptípus ára' to 'vételár'
-        advertisement_data.rename(
-            columns={"alaptípus ára": "vételár"}, inplace=True
-        )
+        advertisement_data.rename(columns={"alaptípus ára": "vételár"}, inplace=True)
         return advertisement_data
     except Exception as e:
         print(e)

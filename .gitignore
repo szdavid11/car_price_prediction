@@ -11,3 +11,4 @@ config/config.ini
 .DS_Store
 __pycache__/
 *.parquet
+/.env
