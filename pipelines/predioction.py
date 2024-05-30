@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from catboost import CatBoostRegressor
 from database_helpers import read_sql_query, setup_database
-from model_creation import replace_less_frequent
 
 # Setting up logging
 logging.basicConfig(
@@ -28,11 +27,12 @@ def write_predictions_into_database() -> None:
     model = CatBoostRegressor()
     model.load_model("../models/car_price_predictor.cbm")
 
-    # Read new data from database
+    # Read new data from a database
     query = f"""
     SELECT ecd.link, "{'", "'.join(model.feature_names_)}"
     FROM engineered_car_data ecd
     LEFT  JOIN predicted_prices pp on pp.link = ecd.link
+    INNER JOIN car_openai_features oaf on oaf.link = ecd.link
     WHERE  pp.predicted_price IS NULL;
     """
 
@@ -54,16 +54,6 @@ def write_predictions_into_database() -> None:
         col for col in df.columns if col not in categorical_features
     ]
     df[non_categorical_features] = df[non_categorical_features].astype(float)
-
-    # Handle categorical values that are less frequent
-    """
-    for col in categorical_features:
-        if col == 'city':
-            df[col] = replace_less_frequent(df[col], 500, 10)
-        else:
-            df[col] = replace_less_frequent(df[col], 1000, 10)
-    """
-
     # Handle missing values
     for col in model.feature_names_:
         if col in categorical_features:
@@ -74,11 +64,12 @@ def write_predictions_into_database() -> None:
     # Predict the prices
     predictions = model.predict(df[model.feature_names_])
 
+    # If less than 0, set it to 0
+    predictions = [max(0, prediction) for prediction in predictions]
+
     # Write the predictions into the database
     df_predictions = pd.DataFrame({"link": df.index, "predicted_price": predictions})
-    df_predictions["predicted_price"] = (
-        10 ** df_predictions["predicted_price"]
-    ).astype(int)
+    df_predictions["predicted_price"] = (df_predictions["predicted_price"]).astype(int)
     df_predictions.to_sql(
         "predicted_prices", con=engine, if_exists="append", index=False
     )

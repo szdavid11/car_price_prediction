@@ -11,24 +11,59 @@ engine = setup_database()
 
 
 class OpenAIFeatures:
-    def __init__(self, engine, model_name: str):
+    def __init__(self, df=None, model_name: str = "gpt-3.5-turbo", limit: int = 10000):
+        """
+        Initialize the OpenAIFeatures class. It will get the unclassified data from the database and
+        create OpenAI features for each row.
+        :param model_name: The name of the OpenAI model to use.
+        :param limit: The number of rows to get from the database.
+        """
+        used_features = [
+            "price (HUF)",
+            "condition",
+            "design",
+            "finanszírozás",
+            "clock position (km)",
+            "shippable persons number",
+            "number of doors",
+            "color",
+            "own weight (kg)",
+            "total weight (kg)",
+            "trunk (l)",
+            "type of climate",
+            "fuel",
+            "cylinder capacity (cm3)",
+            "power (kW)",
+            "drive",
+            "gearbox",
+            "MOT is valid (days)",
+            "age (year)",
+            "MOT is valid (days)",
+            "age (year)",
+            "description",
+            "fizetendő magyarországi forgalomba helyezés esetén",
+            "extrákkal növelt ár",
+            "akció feltételei",
+            "átvehető",
+            "finanszírozás típusa casco-val",
+            "finanszírozás típusa casco nélkül",
+            "garancia",
+            "szavatossági garancia",
+            "alaptípus ára",
+            "futásidő",
+            "átrozsdásodási garancia",
+            "kezdőrészlet casco nélkül",
+            "havi részlet casco nélkül",
+            "futamidő casco nélkül",
+            "garancia megnevezése",
+            "garancia lejárata",
+            "bérlési lehetőség",
+            "kezdőrészlet",
+            "futamidő",
+        ]
         # Get unclassified data
-        query = """
-        SELECT  ecd.link,
-               "price (HUF)" / 400 as "price (EUR)", "condition", "design",  "finanszírozás",
-               "clock position (km)", "shippable persons number", "number of doors",
-               "color", "own weight (kg)", "total weight (kg)", "trunk (l)",
-               "type of climate", "fuel", "cylinder capacity (cm3)", "power (kW)",
-               "drive", "gearbox", "MOT is valid (days)", "age (year)", 
-               "MOT is valid (days)", "age (year)", "description",
-               "fizetendő magyarországi forgalomba helyezés esetén",
-               "extrákkal növelt ár", "akció feltételei", "átvehető",
-               "finanszírozás típusa casco-val", "finanszírozás típusa casco nélkül",
-               "garancia", "szavatossági garancia", "alaptípus ára", "futásidő",
-               "átrozsdásodási garancia", "kezdőrészlet casco nélkül",
-               "havi részlet casco nélkül", "futamidő casco nélkül",
-               "garancia megnevezése", "garancia lejárata", "bérlési lehetőség",
-                "kezdőrészlet", "futamidő"
+        query = f"""
+        SELECT  ecd.link, {", ".join(used_features)}
         FROM
             engineered_car_data ecd
         LEFT JOIN
@@ -40,10 +75,19 @@ class OpenAIFeatures:
         LEFT JOIN car_openai_features cof
             ON ecd.link = cof.link
         where cof.link is null
+        and cl.collected_at > now() - interval '20 days'
         order by cl.collected_at desc
-        limit 100;
+        limit {limit};
         """
-        self.df = read_sql_query(engine, query)
+        if df is None:
+            self.df = read_sql_query(engine, query)
+        else:
+            self.df = df
+            # Select only used features or create empty if missing
+            for feature in used_features:
+                if feature not in self.df.columns:
+                    self.df[feature] = None
+            self.df = self.df[used_features + ["link"]]
 
         # Add car name
         self.df["car_name"] = (
@@ -149,6 +193,15 @@ class OpenAIFeatures:
             }
 
         return prompt, schema
+
+    def process_first_row(self):
+        row = self.df.iloc[0]
+        features = self.process_row(row)
+        # Drop model name and link from openai_features dict
+        features.pop("model_name")
+        features.pop("link")
+
+        return features
 
     def process_row(self, row):
         link = row["link"]
@@ -265,7 +318,7 @@ if __name__ == "__main__":
     for i in range(100):
         print(i)
         start_time = time.time()
-        openai_features = OpenAIFeatures(engine, model_name="gpt-3.5-turbo")
+        openai_features = OpenAIFeatures(limit=100)
         openai_features.process_batch_files()
         end_time = time.time()
         print(f"Time elapsed: {end_time - start_time}")

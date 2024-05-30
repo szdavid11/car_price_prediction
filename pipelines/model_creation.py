@@ -22,18 +22,17 @@ logging.basicConfig(filename="../logs/model_training.log", level=logging.INFO)
 
 def regression_train(
     X_train: pd.DataFrame,
-    X_test: pd.DataFrame,
     y_train: pd.Series,
-    y_test: pd.Series,
     categorical_features: List[str],
-    iterations: int = 15000,
+    X_test: pd.DataFrame = None,
+    y_test: pd.Series = None,
+    iterations: int = 10000,
     learning_rate: Optional[float] = None,
     l2_leaf_reg: int = 10,
     depth: int = 5,
 ) -> CatBoostRegressor:
     """
     Train a CatBoost regression model.
-
     :param X_train: Training features.
     :param X_test: Testing features.
     :param y_train: Training target.
@@ -53,15 +52,30 @@ def regression_train(
         l2_leaf_reg=l2_leaf_reg,
         learning_rate=learning_rate,
         cat_features=[x for x in categorical_features if x in X_train.columns],
+        random_seed=42,
+        subsample=0.5,
+        bagging_temperature=10,
+        colsample_bylevel=0.7,
+        # boosting_type='Ordered',
+        # max_bin=264,
+        min_child_samples=100,
     )
 
-    model.fit(
-        X_train,
-        y_train,
-        eval_set=(X_test, y_test),
-        early_stopping_rounds=100,
-        verbose=1000,  # output the result every 100 iterations
-    )
+    if X_test is None:
+        model.fit(
+            X_train,
+            y_train,
+            early_stopping_rounds=100,
+            verbose=1000,
+        )
+    else:
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=(X_test, y_test),
+            early_stopping_rounds=100,
+            verbose=100,
+        )
 
     return model
 
@@ -85,27 +99,27 @@ def test_model(
     test_predictions = model.predict(X_test)
     train_predictions = model.predict(X_train)
 
-    logging.info("Train R2: %s", metrics.r2_score(y_train, train_predictions))
-    logging.info("Test R2: %s", metrics.r2_score(y_test, test_predictions))
-    logging.info(
+    print("Train R2: %s" % metrics.r2_score(y_train, train_predictions))
+    print("Test R2: %s" % metrics.r2_score(y_test, test_predictions))
+    print(
         "Train MAPE: %s",
-        metrics.mean_absolute_percentage_error(10**y_train, 10**train_predictions),
+        # metrics.mean_absolute_percentage_error(10**y_train, 10**train_predictions),
     )
-    logging.info(
+    print(
         "Train MAPE original: %s",
         metrics.mean_absolute_percentage_error(y_train, train_predictions),
     )
-    logging.info(
+    print(
         "Test MAPE: %s",
-        metrics.mean_absolute_percentage_error(10**y_test, 10**test_predictions),
+        # metrics.mean_absolute_percentage_error(10**y_test, 10**test_predictions),
     )
-    logging.info(
+    print(
         "Test MAPE original: %s",
         metrics.mean_absolute_percentage_error(y_test, test_predictions),
     )
 
 
-def feature_importances_catboost(model: CatBoostRegressor) -> pd.DataFrame:
+def feature_importance_catboost(model: CatBoostRegressor) -> pd.DataFrame:
     """
     Get feature importances from the CatBoost model.
 
@@ -114,16 +128,16 @@ def feature_importances_catboost(model: CatBoostRegressor) -> pd.DataFrame:
     :return: DataFrame with feature importances.
     """
     # Get feature importances
-    importances = model.get_feature_importance()
+    importance = model.get_feature_importance()
     # Combine feature names and importances into a dataframe
-    feature_importances_df = pd.DataFrame(
-        {"feature": model.feature_names_, "importance": importances}
+    feature_importance_df = pd.DataFrame(
+        {"feature": model.feature_names_, "importance": importance}
     )
     # Sort the dataframe by importance in descending order
-    feature_importances_df = feature_importances_df.sort_values(
+    feature_importance_df = feature_importance_df.sort_values(
         "importance", ascending=False
     )
-    return feature_importances_df
+    return feature_importance_df
 
 
 def replace_less_frequent(
@@ -159,7 +173,7 @@ def replace_less_frequent(
     # Recalculate value counts
     new_counts = ser_replaced.value_counts()
 
-    # If "Other" count still doesn't reach "count_limit", replace the least frequent values
+    # If "Another" count still doesn't reach "count_limit", replace the least frequent values
     while new_counts["Other"] < count_limit:
         least_frequent_value = (
             new_counts[new_counts.index != "Other"].nsmallest(1).index[0]
@@ -171,8 +185,11 @@ def replace_less_frequent(
 
 
 def get_train_test(
-    df: pd.DataFrame, target_name: str, non_feature_cols: Optional[List[str]] = None
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    df: pd.DataFrame,
+    target_name: str,
+    non_feature_cols: Optional[List[str]] = None,
+    do_split: bool = True,
+):
     """
     Split a dataframe into training and testing sets.
 
@@ -192,6 +209,9 @@ def get_train_test(
         X[categorical_features] = X[categorical_features].fillna("missing")
     y = df[target_name]
 
+    if not do_split:
+        return X, y
+
     return train_test_split(X, y, test_size=0.2, random_state=0)
 
 
@@ -204,114 +224,104 @@ def training_process(
     engine = setup_database()
 
     # Load data
+    # ecd.link, ecd."price (HUF)",
     query = """
-        SELECT *
-        FROM engineered_car_data
+        SELECT 
+            ecd."price (HUF)", -- target
+            cof.has_model_issues, 
+            cof.has_current_issues,
+            cof.has_recent_fixes,
+            cof.worth_price, 
+            cof.price_adjustment,
+            ecd."age (year)",
+            ecd."power (kW)",
+            ecd."clock position (km)",
+            ecd."gearbox",
+            ecd."brand",
+            ecd."cylinder capacity (cm3)",
+            ecd."design",
+            ecd."own weight (kg)",
+            ecd."drive",
+            ecd."summer tire width",
+            ecd."reversing camera",
+            ecd."condition",
+            ecd."trunk (l)",
+            ecd."shippable persons number",
+            ecd."front-rear parking radar",
+            ecd."type of climate",
+            ecd."MOT is valid (days)",
+            ecd."fuel",
+            ecd."electric rear window",
+            ecd."keyless start",
+            ecd."sliding door",
+            ecd."esp (speed stabilizer)",
+            ecd."led headlight",
+            ecd."rain sensor",
+            ecd."financing",
+            ecd."city",
+            ecd."color",
+            ecd."number of doors",
+            ecd."spare wheel",
+            ecd."heatable window washer nozzles",
+            ecd."freshly serviced",
+            ecd."double-sided sliding door",
+            ecd."tire pressure monitoring system",
+            ecd."knee airbag",
+            ecd."first placing on the market in Hungary",
+            ecd."board computer",
+            ecd."heated front seat"
+        FROM engineered_car_data ecd
+        INNER JOIN car_openai_features cof on ecd.link = cof.link 
+        WHERE "price (HUF)" > 1000000 and "price (HUF)" < 100000000
     """
-    logging.info("Load data")
+    print("Load data")
 
     df = read_sql_query(engine, query)
-    cols = df.columns
+    print("Count of rows:", df.shape[0])
 
-    # Drop tfidf columns
-    tfidf_cols = cols[cols.str.contains("tfidf")]
-    df = df.drop(columns=tfidf_cols)
+    # Drop columns
+    # df = df.drop(columns=["link"]+tfidf_columns)
 
     categorical_features = list(df.select_dtypes(include=["object"]).columns)
     non_categorical_features = list(df.select_dtypes(exclude=["object"]).columns)
     df[non_categorical_features] = df[non_categorical_features].astype(float)
 
     target = "price (HUF)"
-    target_log = "price log"
-    df[target_log] = np.log10(df[target])
+    # target_log = "price log"
+    # df[target_log] = np.log10(df[target])
 
-    logging.info("Handle high cardinality features")
+    print("Handle high cardinality features")
     # Handle categorical values that are less frequent
-    """
     for col in categorical_features:
-        if col == 'city':
+        if col == "city":
             df[col] = replace_less_frequent(df[col], 500, 10)
         else:
             df[col] = replace_less_frequent(df[col], 1000, 10)
-    
-    logging.info("Train the first model")
-    X_train, X_test, y_train, y_test = get_train_test(df, target_log, [target])
+
+    print("Train the first model")
+    X_train, X_test, y_train, y_test = get_train_test(df, target, [target])
     model = regression_train(
-        X_train, X_test, y_train, y_test, categorical_features, iterations=5000
+        X_train, y_train, categorical_features, X_test, y_test, iterations=10000
     )
 
     # Test first model
-    logging.info("All feature model")
+    print("All feature model")
     test_model(model, X_train, X_test, y_train, y_test)
 
-    # Select top features
-    df_feature_importance = feature_importances_catboost(model)
-    top_features = list(df_feature_importance["feature"].values[:max_feature_count])"""
-    top_features = [
-        "age (year)",
-        "power (kW)",
-        "gearbox",
-        "clock position (km)",
-        "brand",
-        "design",
-        "cylinder capacity (cm3)",
-        "drive",
-        "total weight (kg)",
-        "type of climate",
-        "condition",
-        "summer tires rim diameter",
-        "own weight (kg)",
-        "summer tire width",
-        "shippable persons number",
-        "trunk (l)",
-        "fuel",
-        "MOT is valid (days)",
-        "esp (speed stabilizer)",
-        "word_count",
-        "electric rear window",
-        "reversing camera",
-        "summer tires aspect ratio",
-        "heated front and rear seats",
-        "electrically adjustable headrests",
-        "front-rear parking radar",
-        "sliding door",
-        "buy_from_shop",
-        "number of doors",
-        "gps tracker",
-        "kept in garage",
-        "double-sided sliding door",
-        "keyless start",
-        "fatigue sensor",
-        "freshly serviced",
-        "color",
-        "sports chassis",
-        "fog lamp",
-        "regularly maintained",
-        "car offsetting is possible",
-        "spare wheel",
-        "electric mirror",
-        "seat height adjustment",
-        "hud / head-up display",
-        "door actuator",
-        "financing",
-        "cd car radio",
-        "metallic_polish",
-        "leather interior",
-        "city",
-    ]
+    X, y = get_train_test(df, target, [target], do_split=False)
+
     # Top feature model
-    logging.info("Train the second model")
-    X_train2, X_test2, y_train2, y_test2 = get_train_test(
-        df[top_features + [target_log]], target_name=target_log
-    )
-    model2 = regression_train(
-        X_train2, X_test2, y_train2, y_test2, categorical_features, iterations=5000
-    )
-    test_model(model2, X_train2, X_test2, y_train2, y_test2)
+    print("Train the second model")
+    model2 = regression_train(X, y, categorical_features, iterations=10000)
+
+    # Select top features
+    df_feature_importance = feature_importance_catboost(model2)
+    top_features = list(df_feature_importance["feature"].values[:max_feature_count])
+    print("Top features:", top_features)
 
     # Save model
     os.remove(output_file)
-    model2.save_model(output_file)
+    model2.save_model(output_file)  # """
 
 
 if __name__ == "__main__":

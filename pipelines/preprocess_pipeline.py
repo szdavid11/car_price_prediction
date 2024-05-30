@@ -5,9 +5,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import logging
-import joblib
-from typing import List, Dict, Optional
-from sklearn.feature_extraction.text import TfidfVectorizer
+from typing import Dict, Optional
 import simplemma
 
 # Get the directory of the currently executing script
@@ -342,11 +340,11 @@ def extract_feature_frequencies(df: pd.DataFrame) -> pd.Series:
     return all_special_features.value_counts()
 
 
-def determine_speaker_count(car_special_features: List[str]) -> float:
+def determine_speaker_count(car_special_features: np.array) -> float:
     """
     Determines the speaker count based on the provided special features of a car.
 
-    :param car_special_features: List of special features of a car.
+    :param car_special_features: list of special features of a car.
     :return: Speaker count or NaN if not found.
     """
     speaker_counts = [4, 6, 8, 10, 12]
@@ -358,13 +356,13 @@ def determine_speaker_count(car_special_features: List[str]) -> float:
 
 def filter_usable_features(
     feature_frequencies: pd.Series, min_feature_count: int = 1000
-) -> List[str]:
+) -> list[str]:
     """
     Filters out unwanted special features from the feature frequencies.
 
     :param feature_frequencies: Frequencies of special features.
     :param min_feature_count: Minimum number of features
-    :return: List of usable special features.
+    :return: list of usable special features.
     """
     speaker_counts = [4, 6, 8, 10, 12]
     unwanted_features = list(pd.Series(speaker_counts).astype(str) + " hangszóró") + [
@@ -381,12 +379,12 @@ def filter_usable_features(
     return [feat for feat in usable_features if feat not in unwanted_features]
 
 
-def add_special_features(df: pd.DataFrame, usable_features: List[str]) -> pd.DataFrame:
+def add_special_features(df: pd.DataFrame, usable_features: list[str]) -> pd.DataFrame:
     """
     Adds special features as binary columns to the dataframe.
 
     :param df: The input dataframe.
-    :param usable_features: List of usable special features.
+    :param usable_features: list of usable special features.
     :return: Dataframe augmented with special feature columns.
     """
     without_description = [np.array(x) for x in df["feature_list"].values]
@@ -628,69 +626,6 @@ def clean_and_lemmatize_description(df: pd.DataFrame, word_map: dict) -> pd.Data
     return df
 
 
-def apply_tfidf_vectorization(
-    df: pd.DataFrame,
-    stop_words: List[str],
-    max_features: int = 50,
-    vectorizer_file: str = "models/vectorizer.joblib",
-    update: bool = False,
-) -> pd.DataFrame:
-    """
-    Applies the TF-IDF vectorization on the 'description_lemmatized' column and adds the result to the dataframe.
-
-    :param df: Input dataframe with 'description_lemmatized' column.
-    :param stop_words: List of stop words.
-    :param max_features: Maximum number of features for vectorization. Default is 50.
-    :param vectorizer_file: File to save/load the vectorizer. Default is 'vectorizer.joblib'.
-    :param update: If True, fit the vectorizer on new data and update it. Default is False.
-    :return: Modified dataframe with new TF-IDF columns.
-    """
-    if os.path.exists(vectorizer_file) and not update:
-        # Load existing vectorizer
-        vectorizer = joblib.load(vectorizer_file)
-    else:
-        # Fit and save new vectorizer
-        vectorizer = TfidfVectorizer(stop_words=stop_words, max_features=max_features)
-        vectorizer.fit(df["description_lemmatized"])
-        joblib.dump(vectorizer, vectorizer_file)
-
-    tfidf_feature_names = vectorizer.get_feature_names_out()
-    X = vectorizer.transform(df["description_lemmatized"])
-    # TODO: Implement a better way to map the names of the features
-    translator_map = {
-        "csere": "exchange",
-        "elad": "sell",
-        "elektromos": "electronic",
-        "eset": "case",
-        "felszereltség": "equipment",
-        "garancia": "guarantee",
-        "gyári": "factory",
-        "gépkocsi": "car",
-        "használ": "use",
-        "hirdetés": "ad",
-        "kilométer": "kilometer",
-        "kér": "please",
-        "megtekintés": "view",
-        "műszaki": "technical",
-        "rendszer": "system",
-        "szerviz": "service",
-        "tulajdonos": "owner",
-        "vezet": "leads",
-        "állapot": "condition",
-        "ülés": "seat",
-    }
-
-    tfidf_df = pd.DataFrame(
-        X.toarray(),
-        columns=["tfidf_" + translator_map[x].lower() for x in tfidf_feature_names],
-    )
-    tfidf_df.rename(
-        columns={"tfidf_sports": "tfidf_sport"}, errors="ignore", inplace=True
-    )
-
-    return pd.concat([df.reset_index(drop=True), tfidf_df], axis=1)
-
-
 def drop_low_cardinality_columns(
     df: pd.DataFrame, upper_threshold: float = 0.9, lower_threshold: float = 0.001
 ) -> pd.DataFrame:
@@ -736,9 +671,6 @@ def data_processing(
     output_table_name: str = "engineered_car_data",
     json_filepath: str = "../static/hun_eng_name_mapping.json",
     settlements_filepath: str = "../static/all_hun_settlement.csv",
-    word_map_file: str = "../static/hun_word_map.json",
-    stop_words_file: str = "../static/stopwords-hu.txt",
-    vectorizer_file: str = "../models/vectorizer.joblib",
     initial_load: bool = False,
     for_prediction: bool = False,
 ):
@@ -822,10 +754,6 @@ def data_processing(
     df = process_financing(df)
     df = remove_taken_away_columns(df)
     df = clean_and_process_description(df)
-
-    # Add TF-IDF features
-    word_map = load_json_mapping(word_map_file)
-    df = clean_and_lemmatize_description(df, word_map)
 
     # Replace empty string to nan
     df.replace("", np.nan, inplace=True)

@@ -60,7 +60,7 @@ class BatchProcessor:
         batch_response = client.batches.create(
             input_file_id=file_id,
             endpoint="/v1/chat/completions",
-            completion_window="24h"
+            completion_window="24h",
         )
         return batch_response.id
 
@@ -100,13 +100,15 @@ class BatchProcessor:
             response = json.loads(line)
             try:
                 # Extract the custom ID and GPT answer
-                gpt_answer = response['response']['body']['choices'][0]['message']['content']
+                gpt_answer = response["response"]["body"]["choices"][0]["message"][
+                    "content"
+                ]
                 json_answer = json.loads(gpt_answer)
             except Exception as e:
                 logging.warning(f"Failed to parse JSON response: {e}")
                 json_answer = {"error": str(e)}
 
-            json_answer['custom_id'] = response['custom_id']
+            json_answer["custom_id"] = response["custom_id"]
 
             # Append the result to the list
             results.append(json_answer)

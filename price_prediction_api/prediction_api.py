@@ -11,6 +11,7 @@ sys.path.append("../")
 from pipelines.scraper import scrape_car_data
 from pipelines.preprocess_pipeline import data_processing
 from pipelines.database_helpers import read_sql_query, setup_database
+from pipelines.get_openai_features import OpenAIFeatures
 from sqlalchemy import MetaData, Table
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,17 +52,31 @@ class CarLink(BaseModel):
     link: str
 
 
+def add_openai_features(df_scraped: pd.DataFrame, df_engineered: pd.DataFrame) -> pd.DataFrame:
+    # Add openai features
+    df_all_data = pd.merge(
+        df_scraped, df_engineered, on="link"
+    )
+
+    # TODO: Read from the database
+    openai_features = OpenAIFeatures(df_all_data).process_first_row()
+    for key, value in openai_features.items():
+        df_engineered[key] = value
+
+    return df_engineered
+
+
 def save_shap_waterfall(df_processed, link, max_display=20):
     # Get SHAP values for the instance
     shap_values = explainer(df_processed[model.feature_names_])
 
     shap_one = shap_values[0]
-    new_base = 10**shap_one.base_values
+    new_base = shap_one.base_values
     new_values = []
     current_value = shap_one.base_values
 
     for val in shap_one.values:
-        diff = (10 ** (current_value + val)) - (10**current_value)
+        diff = val
         new_values.append(diff)
         current_value = current_value + val
 
@@ -133,6 +148,9 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     # Process data
     df_processed = data_processing(df_scraped, for_prediction=True)
 
+    # Add openai features
+    df_processed = add_openai_features(df_scraped, df_processed)
+
     # Convert bool columns to float
     existing_bools = df_processed.select_dtypes(include=["bool"]).columns
     existing_bools = [col for col in existing_bools if col in bool_columns]
@@ -155,7 +173,7 @@ def prediction_process(link: str) -> tuple[int, int, str]:
     png_file_name = save_shap_waterfall(df_processed, link)
 
     return (
-        int(round(10**prediction / 1000) * 1000),
+        int(round(prediction / 1000) * 1000),
         int(df_processed["price (HUF)"].values[0]),
         png_file_name,
     )
@@ -184,8 +202,9 @@ async def get_some_good_deals(number_of_urls: int):
             LEFT join engineered_car_data ecd on pp.link = ecd.link
             WHERE pp.predicted_price > ecd."price (HUF)"
             AND cl.estimated_sold_date is NULL
-            AND cl.collected_at > now() - interval '5 days'
+            AND cl.collected_at > now() - interval '7 days'
             AND ecd."price (HUF)" < 10000000
+            AND ecd."price (HUF)" > 1000000
         ) foo
         ORDER BY price_difference DESC 
         LIMIT {number_of_urls}
@@ -217,6 +236,7 @@ async def predict_car_price(car_link: CarLink):
 
 
 if __name__ == "__main__":
-    prediction_process(
-        "https://www.hasznaltauto.hu/szemelyauto/suzuki/vitara/suzuki_vitara_1.4_hybrid_gl_plusz_akar_2.1_millio_ar-elony_plusz_0_thm-18561661#sid=a85accce-4958-44b9-8804-0db38a662e13"
+    price = prediction_process(
+        "https://www.hasznaltauto.hu/szemelyauto/seat/ibiza/seat_ibiza_1.2_12v_entry-20734372"
     )
+    print(price)
