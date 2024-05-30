@@ -63,7 +63,7 @@ class OpenAIFeatures:
         ]
         # Get unclassified data
         query = f"""
-        SELECT  ecd.link, {", ".join(used_features)}
+        SELECT  ecd.link, "{'", "'.join(used_features)}"
         FROM
             engineered_car_data ecd
         LEFT JOIN
