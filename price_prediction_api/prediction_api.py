@@ -84,6 +84,15 @@ def save_shap_waterfall(df_processed, link, max_display=20):
     new_values = ((np.array(new_values) / 1000).round() * 1000).astype(int)
     new_base = int(round(new_base / 1000)) * 1000
 
+    # If one of the feature is 'has_model_issues'
+    # then change the name and value to `model_issues_detail` value of df_processed
+    issue_col = "has_model_issues"
+    if issue_col in model.feature_names_:
+        model_issue_idx = model.feature_names_.index(issue_col)
+        if df_processed[issue_col].values[0]:
+            shap_one.data[model_issue_idx] = df_processed["model_issues_detail"].values[0]
+            model.feature_names_[model_issue_idx] = "model_issues_detail"
+
     new_shap_exp = shap._explanation.Explanation(
         values=new_values,
         base_values=new_base,
@@ -170,6 +179,7 @@ def prediction_process(link: str) -> tuple[int, int, str]:
 
     # Make prediction
     prediction = model.predict(df_processed[model.feature_names_])[0]
+    df_processed.to_parquet("processed.parquet")
     png_file_name = save_shap_waterfall(df_processed, link)
 
     return (
@@ -236,7 +246,12 @@ async def predict_car_price(car_link: CarLink):
 
 
 if __name__ == "__main__":
-    price = prediction_process(
-        "https://www.hasznaltauto.hu/szemelyauto/seat/ibiza/seat_ibiza_1.2_12v_entry-20734372"
-    )
+    link = "https://www.hasznaltauto.hu/szemelyauto/bmw/750/bmw_750_active_hibrid-20741687"
+    price = prediction_process(link)
     print(price)
+    """
+    df_asd = pd.read_parquet("processed.parquet")
+    df_asd["has_model_issues"] = True
+    df_asd["model_issues_detail"] = "Nem indul"
+    save_shap_waterfall(df_asd, link)"""
+
