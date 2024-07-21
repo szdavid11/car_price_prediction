@@ -210,15 +210,18 @@ async def get_some_good_deals(number_of_urls: int):
             FROM predicted_prices pp
             LEFT join car_links cl on pp.link = cl.link
             LEFT join engineered_car_data ecd on pp.link = ecd.link
+            LEFT join car_openai_features cof on pp.link = cof.link
             WHERE pp.predicted_price > ecd."price (HUF)"
             AND cl.estimated_sold_date is NULL
             AND cl.collected_at > now() - interval '7 days'
             AND ecd."price (HUF)" < 10000000
             AND ecd."price (HUF)" > 1000000
+            AND cof.price_adjustment >= 0
         ) foo
         ORDER BY price_difference DESC 
         LIMIT {number_of_urls}
     """
+
     df = read_sql_query(engine, query)
     df["Predicted price"] = (1000 * (df["Predicted price"] / 1000).astype(int)).astype(
         str

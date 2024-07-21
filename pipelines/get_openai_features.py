@@ -11,7 +11,7 @@ engine = setup_database()
 
 
 class OpenAIFeatures:
-    def __init__(self, df=None, model_name: str = "gpt-3.5-turbo", limit: int = 10000):
+    def __init__(self, df=None, model_name: str = "gpt-4o-mini", limit: int = 10000):
         """
         Initialize the OpenAIFeatures class. It will get the unclassified data from the database and
         create OpenAI features for each row.
@@ -145,7 +145,10 @@ class OpenAIFeatures:
             f"{description_questions}\n"
             f"- Based on all the information about this car do you think it is worth the price? (worth_price)\n"
             f"- Would you pay more or less for this car and how much? "
-            f"Write a percentage between -50 to +50. If you think the price is right ot can be 0. (price_adjustment)"
+            f"Write a percentage between -50 to +50. "
+            f"If you think the price is right ot can be 0. (price_adjustment)"
+            f"If you think the car is even more valuable than the price write a positive number. "
+            f"If you think the car is less valuable than the price write a negative number. "
         )
 
         # Create langchain schema
