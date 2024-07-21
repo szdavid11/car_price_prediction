@@ -206,7 +206,7 @@ async def get_some_good_deals(number_of_urls: int):
         original_price as "Original price"
         FROM (
             SELECT pp.link, predicted_price, ecd."price (HUF)" as original_price, 
-            predicted_price - ecd."price (HUF)" as price_difference
+            predicted_price + (cof.price_adjustment::int * predicted_price) - ecd."price (HUF)" as price_difference
             FROM predicted_prices pp
             LEFT join car_links cl on pp.link = cl.link
             LEFT join engineered_car_data ecd on pp.link = ecd.link
@@ -216,7 +216,7 @@ async def get_some_good_deals(number_of_urls: int):
             AND cl.collected_at > now() - interval '7 days'
             AND ecd."price (HUF)" < 10000000
             AND ecd."price (HUF)" > 1000000
-            AND cof.price_adjustment >= 0
+            AND cof.price_adjustment::int >= 0
         ) foo
         ORDER BY price_difference DESC 
         LIMIT {number_of_urls}
