@@ -31,6 +31,9 @@ This project requires the following Python libraries:
 ## Usage
 
 Ensure that you have the necessary Python packages installed. Use the Python scripts provided in the repository for various tasks like data collection, preprocessing, model training, etc.
+```bash
+uvicorn prediction_api:app --host 0.0.0.0 --port 8000
+```
 
 ## Contributing
 

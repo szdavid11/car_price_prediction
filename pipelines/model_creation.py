@@ -272,7 +272,9 @@ def training_process(
             ecd."heated front seat"
         FROM engineered_car_data ecd
         INNER JOIN car_openai_features cof on ecd.link = cof.link 
+        LEFT JOIN car_links cl on ecd.link = cl.link
         WHERE "price (HUF)" > 1000000 and "price (HUF)" < 100000000
+        AND cl.collected_at > '2024-07-21'
     """
     print("Load data")
 
