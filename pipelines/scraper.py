@@ -240,6 +240,7 @@ class CarDataScraper:
         all_links = []
         page_number = 1
         while True:
+            print(f"Scraping page {page_number}")
             links_on_page = self.get_links(page_number)
             if not links_on_page:
                 break
