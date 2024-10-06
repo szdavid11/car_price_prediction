@@ -181,7 +181,7 @@ def scrape_car_data(link: str) -> Optional[pd.DataFrame]:
 
 class CarDataScraper:
     # Base URL is get from after I set the proper search parameters
-    BASE_URL = "https://www.hasznaltauto.hu/szemelyauto"
+    BASE_URL = "https://www.hasznaltauto.hu/szemelyauto/"
 
     def __init__(
         self,
@@ -213,24 +213,29 @@ class CarDataScraper:
         :param page_number:
         :return:
         """
-        url = self.BASE_URL + str(page_number)
-        response = requests.get(
-            url, headers=HEADERS
-        )  # proxies={'http': PROXY_NAME, 'https': PROXY_NAME})
-        soup = BeautifulSoup(response.content, "html.parser")
-        matches = soup.find_all("a", {"class": ""})
+        try:
+            url = self.BASE_URL + str(page_number)
+            response = requests.get(
+                url, headers=HEADERS
+            )  # proxies={'http': PROXY_NAME, 'https': PROXY_NAME})
+            soup = BeautifulSoup(response.content, "html.parser")
+            matches = soup.find_all("a", {"class": ""})
 
-        # Extract the hrefs from matches
-        hrefs = pd.Series(
-            [match["href"] for match in matches if match.has_attr("href")]
-        )
+            # Extract the hrefs from matches
+            hrefs = pd.Series(
+                [match["href"] for match in matches if match.has_attr("href")]
+            )
 
-        # Keep only those that a link for a car
-        hrefs = hrefs[
-            hrefs.str.contains("www.hasznaltauto.hu/szemelyauto", regex=False)
-        ].to_list()
+            # Keep only those that a link for a car
+            hrefs = hrefs[
+                hrefs.str.contains("www.hasznaltauto.hu/szemelyauto", regex=False)
+            ].to_list()
 
-        return hrefs
+            return hrefs
+        except Exception as e:
+            print(e)
+            logging.error(e)
+            return []
 
     def get_all_links(self) -> pd.Series:
         """
