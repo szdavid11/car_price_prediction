@@ -181,7 +181,7 @@ def scrape_car_data(link: str) -> Optional[pd.DataFrame]:
 
 class CarDataScraper:
     # Base URL is get from after I set the proper search parameters
-    BASE_URL = "https://www.hasznaltauto.hu/szemelyauto/"
+    BASE_URL = "https://www.hasznaltauto.hu/szemelyauto/page"
 
     def __init__(
         self,
@@ -230,6 +230,7 @@ class CarDataScraper:
             hrefs = hrefs[
                 hrefs.str.contains("www.hasznaltauto.hu/szemelyauto", regex=False)
             ].to_list()
+            print("Number of links on the page: ", len(hrefs))
 
             return hrefs
         except Exception as e:

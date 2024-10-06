@@ -52,11 +52,11 @@ class CarLink(BaseModel):
     link: str
 
 
-def add_openai_features(df_scraped: pd.DataFrame, df_engineered: pd.DataFrame) -> pd.DataFrame:
+def add_openai_features(
+    df_scraped: pd.DataFrame, df_engineered: pd.DataFrame
+) -> pd.DataFrame:
     # Add openai features
-    df_all_data = pd.merge(
-        df_scraped, df_engineered, on="link"
-    )
+    df_all_data = pd.merge(df_scraped, df_engineered, on="link")
 
     # TODO: Read from the database
     openai_features = OpenAIFeatures(df_all_data).process_first_row()
@@ -90,7 +90,9 @@ def save_shap_waterfall(df_processed, link, max_display=20):
     if issue_col in model.feature_names_:
         model_issue_idx = model.feature_names_.index(issue_col)
         if df_processed[issue_col].values[0]:
-            shap_one.data[model_issue_idx] = df_processed["model_issues_detail"].values[0]
+            shap_one.data[model_issue_idx] = df_processed["model_issues_detail"].values[
+                0
+            ]
             model.feature_names_[model_issue_idx] = "model_issues_detail"
 
     new_shap_exp = shap._explanation.Explanation(
@@ -249,7 +251,9 @@ async def predict_car_price(car_link: CarLink):
 
 
 if __name__ == "__main__":
-    link = "https://www.hasznaltauto.hu/szemelyauto/bmw/750/bmw_750_active_hibrid-20741687"
+    link = (
+        "https://www.hasznaltauto.hu/szemelyauto/bmw/750/bmw_750_active_hibrid-20741687"
+    )
     price = prediction_process(link)
     print(price)
     """
@@ -257,4 +261,3 @@ if __name__ == "__main__":
     df_asd["has_model_issues"] = True
     df_asd["model_issues_detail"] = "Nem indul"
     save_shap_waterfall(df_asd, link)"""
-
