@@ -218,7 +218,7 @@ async def get_some_good_deals(number_of_urls: int):
             AND cl.collected_at > now() - interval '7 days'
             AND ecd."price (HUF)" < 10000000
             AND ecd."price (HUF)" > 1000000
-            AND cof.price_adjustment::int >= 0
+            AND cof.price_adjustment::int > 1
         ) foo
         ORDER BY price_difference_ratio DESC 
         LIMIT {number_of_urls}
