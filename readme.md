@@ -35,6 +35,11 @@ Ensure that you have the necessary Python packages installed. Use the Python scr
 uvicorn prediction_api:app --host 0.0.0.0 --port 8000
 ```
 
+You my need to defien path
+```bash
+export PATH=$PATH:$HOME/.local/bin
+```
+
 ## Contributing
 
 Contributions, issues, and feature requests are welcome. Feel free to check issues page if you want to contribute.
