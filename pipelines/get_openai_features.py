@@ -309,6 +309,20 @@ class OpenAIFeatures:
         bp = BatchProcessor(jsonl_files)
         df_response = bp.process_files()
         df_response.rename(columns={"custom_id": "link"}, inplace=True)
+
+        # Allow only the columns that are in the database
+        df_response = df_response[
+            [
+                "link",
+                "has_model_issues",
+                "model_issues_detail",
+                "has_current_issues",
+                "has_recent_fixes",
+                "worth_price",
+                "price_adjustment",
+            ]
+        ]
+
         # Upload to database
         store_to_sql(df_response, engine, "car_openai_features")
 
