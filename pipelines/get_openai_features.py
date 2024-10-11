@@ -316,12 +316,55 @@ class OpenAIFeatures:
         for file in jsonl_files:
             os.remove(file)
 
+    @staticmethod
+    def process_jsonline(jsonl_file: str):
+        with open(jsonl_file, "r") as f:
+            content = f.read()
+
+        results = []
+        for line in content.splitlines():
+            # Parse the JSON response
+            response = json.loads(line)
+            try:
+                # Extract the custom ID and GPT answer
+                gpt_answer = response["response"]["body"]["choices"][0]["message"][
+                    "content"
+                ]
+                json_answer = json.loads(gpt_answer)
+            except Exception as e:
+                json_answer = {"error": str(e)}
+
+            json_answer["link"] = response["custom_id"]
+
+            # Append the result to the list
+            results.append(json_answer)
+
+        df_response = pd.json_normalize(results)
+
+        # Where worthy price not null add this value to worth_price then remove worthy price
+        df_response["worth_price"] = df_response["worth_price"].combine_first(
+            df_response["worthy_price"]
+        )
+        df_response.drop(columns=["worthy_price"], inplace=True)
+
+        df_links = read_sql_query(engine, "SELECT link FROM car_openai_features")
+
+        # Remove the rows where the link is already in the database
+        df_response = df_response[~df_response["link"].isin(df_links["link"])]
+
+        # Upload to database
+        store_to_sql(df_response, engine, "car_openai_features")
+
 
 if __name__ == "__main__":
-    for i in range(100):
+    for i in range(10):
         print(i)
         start_time = time.time()
-        openai_features = OpenAIFeatures(limit=100)
+        openai_features = OpenAIFeatures()
         openai_features.process_batch_files()
         end_time = time.time()
         print(f"Time elapsed: {end_time - start_time}")
+
+    """
+    file_path = '/Users/davidszalai/Downloads/batch_67084ead99648190b68df76070b2d3eb_output.jsonl'
+    OpenAIFeatures.process_jsonline(file_path)"""
